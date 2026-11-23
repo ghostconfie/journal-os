@@ -19,6 +19,29 @@ with the time in the margin.
 | `#word` anywhere | a tag (searchable) |
 | `12 …` on a month page | pins it to the 12th |
 
+| `@9-10:30` `@2-3pm` | start and finish time |
+| `by:fri` `by:27/11` `by:tomorrow` | a deadline |
+| `+physical` `+spiritual` `+mental` `+fin` `+rel` `+todo` | a pillar |
+
+Every line shows when it was written (in the margin) and, if planned, when it starts, when it should be done by,
+and its deadline.
+
+## Pillars (task manager)
+Six lists: Physical, Spiritual, Mental, Financial, Relational and Tasks to do. Anything can go in them (tasks,
+events, notes, ideas, priorities). Press **plan →** on a line to put it on a day: pick the day, a time block
+(early morning, morning, afternoon, evening, night), a start and finish time, and whether it's a priority for the
+day. It keeps its pillar label, and ticking it off on the day ticks it off in the pillar too.
+
+## Days
+Each day has three tabs: **Log** (the rapid log / interstitial journal), **Plan & time blocks** (priorities for
+the day, each time block in order, deadlines, and anything without a time yet; **Pull from pillars** brings tasks
+in), and **Creative space** (drawings, photos, videos, mind maps and sticky notes).
+Photos are shrunk to sync. Uploaded videos stay on the device they were added from; video links play everywhere.
+
+## Calendar
+Every year (each day shaded by how much was written, with marks for creative pages and deadlines) and every month
+(a wall calendar showing what was written on each day). Tap any day to open it.
+
 ## Pages
 - **Daily pages**: one per day, with the rapid log.
 - **Monthly log**: a calendar down the left (events, plus tasks done per day) and the month's task list.

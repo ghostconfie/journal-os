@@ -9,9 +9,14 @@ export const SCHEMA = {
   entries: {
     id: 'TEXT', page: 'TEXT', kind: 'TEXT', text: 'TEXT', status: 'TEXT', priority: 'BOOL', time: 'TEXT', at: 'TEXT',
     day: 'INT', order: 'INT', tags: 'JSON', movedTo: 'TEXT', movedFrom: 'TEXT', focusOf: 'TEXT', minutes: 'INT',
-    endTime: 'TEXT', createdAt: 'TEXT', updatedAt: 'TEXT',
+    // time = start time, endTime = finish time; block = time-block section of the day; due = deadline (YYYY-MM-DD)
+    // pillar = life area it belongs to (physical, spiritual, mental, financial, relational, todo)
+    endTime: 'TEXT', block: 'TEXT', due: 'TEXT', pillar: 'TEXT', createdAt: 'TEXT', updatedAt: 'TEXT',
   },
   collections: { id: 'TEXT', name: 'TEXT', order: 'INT', archived: 'BOOL', createdAt: 'TEXT', updatedAt: 'TEXT' },
+  // creative space cards on a page: sketch (strokes JSON), image (compressed data URL), video (device file or link),
+  // mindmap (nodes JSON), sticky (text). data holds the content, caption a short label.
+  blocks: { id: 'TEXT', page: 'TEXT', type: 'TEXT', order: 'INT', data: 'TEXT', caption: 'TEXT', color: 'TEXT', createdAt: 'TEXT', updatedAt: 'TEXT' },
   // the task you're working on right now (one row, id 'current'); synced so every device shows the same clock
   focus: { id: 'TEXT', taskId: 'TEXT', text: 'TEXT', startedAt: 'TEXT', startTime: 'TEXT', createdAt: 'TEXT', updatedAt: 'TEXT' },
 };

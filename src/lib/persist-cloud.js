@@ -137,9 +137,18 @@ export async function startCloud(store, user, onStatus) {
 
   store.adapter = {
     write(ops) {
-      for (let i = 0; i < ops.length; i += 400) {
+      // Firestore batches are capped at 500 writes and ~10MB, and photos are large, so split by count and size
+      const groups = [];
+      let cur = [], bytes = 0;
+      for (const o of ops) {
+        const sz = o.doc ? JSON.stringify(o.doc).length + 200 : 200;
+        if (cur.length && (cur.length >= 400 || bytes + sz > 7_000_000)) { groups.push(cur); cur = []; bytes = 0; }
+        cur.push(o); bytes += sz;
+      }
+      if (cur.length) groups.push(cur);
+      for (const group of groups) {
         const b = writeBatch(fs);
-        for (const o of ops.slice(i, i + 400)) {
+        for (const o of group) {
           const ref = doc(coll, key(o.table, o.id));
           if (o.doc) b.set(ref, { ...o.doc, _t: o.table, _id: o.id, _ts: serverTimestamp() });
           else b.set(ref, { _t: o.table, _id: o.id, _deleted: true, _ts: serverTimestamp() });

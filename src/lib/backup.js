@@ -5,7 +5,9 @@ import { SCHEMA, TABLES, clean } from './store.js';
 import { parseLine, dayPage, monthPage } from './journal.js';
 import { todayStr } from './util.js';
 
-const SHEETS = { entries: 'Entries', collections: 'Collections', focus: 'Focus' };
+const SHEETS = { entries: 'Entries', collections: 'Collections', focus: 'Focus', blocks: 'Creative' };
+const LONG = 'Long text';
+const CELL_MAX = 30000; // Excel cells hold up to 32,767 characters; photos and drawings are longer, so they're split
 
 export function buildWorkbook(snapshot) {
   const wb = XLSX.utils.book_new();
@@ -17,15 +19,26 @@ export function buildWorkbook(snapshot) {
     ['Entries.page: day:YYYY-MM-DD = daily page, month:YYYY-MM = monthly / future log, col:<id> = a collection.'],
     ['Entries.kind: task, event, note, idea, session.  status: open, done, migrated, scheduled, cancelled.'],
     ['You can add rows by hand: give each a unique id (or leave id blank and one is made), a page, kind and text.'],
+    ['Creative: drawings, photos, mind maps and sticky notes. Long content (photos, drawings) continues on the "Long text" sheet.'],
+    ['Videos uploaded from a device stay on that device and are not in this file (video links are).'],
   ];
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(readme), 'Read me');
+  const long = [['table', 'id', 'field', 'part', 'text']];
   for (const t of TABLES) {
     const cols = Object.keys(SCHEMA[t]);
-    const rows = (snapshot[t] || []).map((r) => cols.map((c) => (SCHEMA[t][c] === 'JSON' ? (r[c] || []).join(', ') : r[c] ?? '')));
+    const rows = (snapshot[t] || []).map((r) => cols.map((c) => {
+      const v = SCHEMA[t][c] === 'JSON' ? (r[c] || []).join(', ') : r[c] ?? '';
+      if (typeof v === 'string' && v.length > CELL_MAX) {
+        for (let i = 0, part = 1; i < v.length; i += CELL_MAX, part++) long.push([t, r.id, c, part, v.slice(i, i + CELL_MAX)]);
+        return '[[see Long text]]';
+      }
+      return v;
+    }));
     const ws = XLSX.utils.aoa_to_sheet([cols, ...rows]);
     ws['!cols'] = cols.map((c) => ({ wch: c === 'text' ? 60 : c === 'id' || c === 'movedFrom' || c === 'focusOf' ? 34 : 14 }));
     XLSX.utils.book_append_sheet(wb, ws, SHEETS[t]);
   }
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(long), LONG);
   return wb;
 }
 
@@ -50,17 +63,26 @@ function fromCell(type, v) {
 /** Read a backup workbook into {entries, collections, focus}. */
 export function readBackup(wb) {
   const out = {};
+  const long = new Map();
+  if (wb.Sheets[LONG]) {
+    const parts = XLSX.utils.sheet_to_json(wb.Sheets[LONG], { defval: '', raw: true }).sort((a, b) => a.part - b.part);
+    for (const p of parts) { const k = `${p.table}|${p.id}|${p.field}`; long.set(k, (long.get(k) || '') + String(p.text)); }
+  }
   for (const t of TABLES) {
     const ws = wb.Sheets[SHEETS[t]];
     const rows = ws ? XLSX.utils.sheet_to_json(ws, { defval: '', raw: true }) : [];
     out[t] = rows
       .map((r) => {
         const o = {};
-        for (const [c, type] of Object.entries(SCHEMA[t])) if (r[c] !== undefined) o[c] = fromCell(type, r[c]);
+        for (const [c, type] of Object.entries(SCHEMA[t])) {
+          if (r[c] === undefined) continue;
+          const v = r[c] === '[[see Long text]]' ? long.get(`${t}|${r.id}|${c}`) ?? '' : r[c];
+          o[c] = fromCell(type, v);
+        }
         if (!o.id) o.id = (globalThis.crypto?.randomUUID?.() || String(Math.random()).slice(2)).replace(/-/g, '');
         return clean(t, o);
       })
-      .filter((r) => (t !== 'entries' || (r.page && r.text)));
+      .filter((r) => (t !== 'entries' || (r.page && r.text)) && (t !== 'blocks' || (r.page && r.type)));
   }
   return out;
 }

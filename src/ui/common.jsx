@@ -19,12 +19,22 @@ export function pageLabel(page, journal) {
   const p = pageInfo(page);
   if (p.type === 'day') return p.key === todayStr() ? 'Today' : shortDay(p.key);
   if (p.type === 'month') return monthLabel(p.key);
-  if (p.type === 'col') return journal.pageTitle(page);
+  if (p.type === 'col' || p.type === 'pillar') return journal.pageTitle(page);
   return page;
 }
 export function pageHref(page) {
   const p = pageInfo(page);
-  return p.type === 'day' ? `#/day/${p.key}` : p.type === 'month' ? `#/month/${p.key}` : `#/col/${p.key}`;
+  return p.type === 'day' ? `#/day/${p.key}` : p.type === 'month' ? `#/month/${p.key}` : p.type === 'pillar' ? `#/pillars/${p.key}` : `#/col/${p.key}`;
+}
+
+/** "due today", "overdue · Fri 20 Nov", "by Fri 27 Nov" */
+export function dueLabel(due, today = todayStr()) {
+  if (!due) return null;
+  if (due === today) return { text: 'due today', cls: 'today' };
+  if (due < today) return { text: `overdue · ${shortDay(due)}`, cls: 'late' };
+  const tmr = new Date(Date.parse(today + 'T12:00:00Z') + 86400000).toISOString().slice(0, 10);
+  if (due === tmr) return { text: 'due tomorrow', cls: 'soon' };
+  return { text: `by ${shortDay(due)}`, cls: '' };
 }
 
 export const fmtMins = (m) => (m >= 60 ? `${Math.floor(m / 60)}h${m % 60 ? ` ${m % 60}m` : ''}` : `${m}m`);

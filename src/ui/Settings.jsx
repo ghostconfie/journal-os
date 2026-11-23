@@ -44,7 +44,7 @@ export function SettingsView({ journal, store, sync }) {
         // merge a backup in without wiping anything: only lines and collections this notebook doesn't have yet
         const data = readBackup(wb);
         let n = 0;
-        for (const t of ['collections', 'entries']) for (const r of data[t]) if (!store.get(t, r.id)) { store.insert(t, r); n++; }
+        for (const t of ['collections', 'entries', 'blocks']) for (const r of data[t]) if (!store.get(t, r.id)) { store.insert(t, r); n++; }
         store.commit();
         toast(n ? `Added ${n} missing lines from the backup` : 'Nothing new in that backup');
         return;

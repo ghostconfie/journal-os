@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'preact/hooks';
 import { EntryLine, PenLine } from './Entry.jsx';
+import { DayPlan } from './Plan.jsx';
+import { CreativeSpace } from './Creative.jsx';
 import { Ink } from './Ink.jsx';
 import { dayTitle, fmtMins, monthName, pageHref, pageLabel, shortDay, toast, weekday } from './common.jsx';
 import { colPage, dayPage, monthPage, nextMonths } from '../lib/journal.js';
@@ -46,7 +48,7 @@ function Lines({ list, journal, onOpen, page, showPage }) {
 
 const Arrow = ({ href, dir, label }) => <a class="icon-btn" href={href} aria-label={label}>{dir < 0 ? '‹' : '›'}</a>;
 
-export function DayView({ journal, date, onOpen }) {
+export function DayView({ journal, date, tab = 'log', onOpen, onPlan, onPull }) {
   const today = todayStr();
   const list = journal.entries(dayPage(date));
   const st = journal.stats(date);
@@ -60,21 +62,33 @@ export function DayView({ journal, date, onOpen }) {
   );
   const nav = (
     <>
-      <Arrow href={`#/day/${addDays(date, -1)}`} dir={-1} label="Previous day" />
-      {date !== today && <a class="btn small ghost" href={`#/day/${today}`}>Today</a>}
-      <input type="date" class="date-pick" value={date} onChange={(e) => e.currentTarget.value && (location.hash = `#/day/${e.currentTarget.value}`)} aria-label="Go to date" />
-      <Arrow href={`#/day/${addDays(date, 1)}`} dir={1} label="Next day" />
+      <Arrow href={`#/day/${addDays(date, -1)}/${tab}`} dir={-1} label="Previous day" />
+      {date !== today && <a class="btn small ghost" href={`#/day/${today}/${tab}`}>Today</a>}
+      <input type="date" class="date-pick" value={date} onChange={(e) => e.currentTarget.value && (location.hash = `#/day/${e.currentTarget.value}/${tab}`)} aria-label="Go to date" />
+      <Arrow href={`#/day/${addDays(date, 1)}/${tab}`} dir={1} label="Next day" />
     </>
   );
+  const cards = journal.cards(dayPage(date)).length;
+  const tabs = (
+    <nav class="page-tabs" aria-label="Sections of this day">
+      <a class={tab === 'log' ? 'on' : ''} href={`#/day/${date}/log`}>Log</a>
+      <a class={tab === 'plan' ? 'on' : ''} href={`#/day/${date}/plan`}>Plan &amp; time blocks</a>
+      <a class={tab === 'create' ? 'on' : ''} href={`#/day/${date}/create`}>Creative space{cards ? ` (${cards})` : ''}</a>
+    </nav>
+  );
+  const foot = tab === 'create' ? null : <PenLine journal={journal} page={dayPage(date)} kind={tab === 'plan' ? 'task' : undefined} placeholder={tab === 'plan' ? 'Add to the day… (@9-10:30 sets the time, *priority)' : undefined} />;
   return (
-    <Paper title={dayTitle(date)} sub={sub} nav={nav} pno={journal.pageNumber(dayPage(date))} foot={<PenLine journal={journal} page={dayPage(date)} />}>
-      {pending > 0 && (
+    <Paper title={dayTitle(date)} sub={sub} nav={nav} pno={journal.pageNumber(dayPage(date))} foot={foot}>
+      {tabs}
+      {tab === 'plan' && <DayPlan journal={journal} date={date} onOpen={onOpen} onPlan={onPlan} onPull={onPull} />}
+      {tab === 'create' && <CreativeSpace journal={journal} page={dayPage(date)} />}
+      {tab === 'log' && pending > 0 && (
         <a class="banner" href="#/migrate">
           <b>{pending}</b> open task{pending === 1 ? '' : 's'} from earlier pages. Migrate, schedule or strike them out →
         </a>
       )}
-      {list.length === 0 && <EmptyDay isToday={date === today} />}
-      <Lines list={list} journal={journal} onOpen={onOpen} page={dayPage(date)} />
+      {tab === 'log' && list.length === 0 && <EmptyDay isToday={date === today} />}
+      {tab === 'log' && <Lines list={list} journal={journal} onOpen={onOpen} page={dayPage(date)} />}
     </Paper>
   );
 }
@@ -89,6 +103,8 @@ function EmptyDay({ isToday }) {
           <li><b>. call supplier</b>: a task. Tap its • to tick it off ×</li>
           <li><b>o gym 6pm</b> or <b>o gym @6pm</b>: an event</li>
           <li><b>! idea</b>, <b>- note</b>, put <b>*</b> first for priority</li>
+          <li><b>. gym @6-7:30</b>: start and finish time · <b>by:fri</b>: a deadline · <b>+physical</b>: a pillar</li>
+          <li><b>Plan &amp; time blocks</b> (above) lays the day out by priority and time block. Pull tasks in from your Pillars.</li>
           <li>Press <b>What are you working on?</b> at the top to time a task. When you switch, jot how it went.</li>
         </ul>
       )}
