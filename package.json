@@ -1,0 +1,30 @@
+{
+  "name": "journal-os",
+  "version": "1.0.0",
+  "description": "Notebook: bullet journal + interstitial journaling (PWA)",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "postinstall": "node scripts/patch-xlsx.mjs"
+  },
+  "private": true,
+  "dependencies": {
+    "@fontsource/caveat": "^5.3.0",
+    "@fontsource/homemade-apple": "^5.3.0",
+    "@fontsource/kalam": "^5.3.0",
+    "@fontsource/nanum-pen-script": "^5.3.0",
+    "@fontsource/patrick-hand": "^5.3.0",
+    "firebase": "^13.4.0",
+    "preact": "^11.2.0",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@preact/preset-vite": "^2.10.6",
+    "vite": "^6.4.6",
+    "vite-plugin-pwa": "^2.0.0",
+    "vitest": "^5.1.1"
+  }
+}
