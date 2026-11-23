@@ -1,15 +1,16 @@
 import { useEffect, useState } from 'preact/hooks';
-import { ordinal, monthLabel, todayStr } from '../lib/util.js';
+import { monthLabel, todayStr } from '../lib/util.js';
 import { pageInfo } from '../lib/journal.js';
 
 const WD = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const MN = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
 export const weekday = (iso) => WD[new Date(iso + 'T12:00:00Z').getUTCDay()];
+/** Daily log header, bullet journal style: "23.11 Monday" (year added when it isn't this year). */
 export function dayTitle(iso) {
   const [y, m, d] = iso.split('-').map(Number);
-  const yr = y !== +todayStr().slice(0, 4) ? ` ${y}` : '';
-  return `${weekday(iso)} ${ordinal(d)} ${MN[m - 1]}${yr}`;
+  const yr = y !== +todayStr().slice(0, 4) ? `.${String(y).slice(2)}` : '';
+  return `${String(d).padStart(2, '0')}.${String(m).padStart(2, '0')}${yr} ${weekday(iso)}`;
 }
 export const shortDay = (iso) => `${weekday(iso).slice(0, 3)} ${+iso.slice(8)} ${MN[+iso.slice(5, 7) - 1].slice(0, 3)}`;
 export const monthName = (m) => MN[+m.slice(5, 7) - 1];

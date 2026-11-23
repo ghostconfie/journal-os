@@ -78,7 +78,7 @@ export function App({ journal, store, sync: initialSync, onStatus }) {
       </aside>
 
       <main class="main">
-        <div class="topbar">
+        <div class={`topbar ${route.name === 'month' ? 'wide' : ''}`}>
           <FocusBar journal={journal} onSwitch={() => setSheet('switch')} onStart={() => setSheet('start')} />
           <span class={`sync-dot ${syncCls}`} title={sync?.label} aria-label={sync?.label} />
         </div>

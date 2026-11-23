@@ -260,6 +260,31 @@ export class Journal {
     return [...set].sort().reverse().slice(0, limit);
   }
 
+  /**
+   * Page numbers, like a numbered notebook: pages are numbered in the order you first wrote on them.
+   * A monthly log takes two pages (a spread). A page you haven't written on yet gets the next free number.
+   */
+  pageNumber(page) {
+    if (this._pnVer !== this.s.version) {
+      const first = new Map();
+      for (const e of this.s.raw('entries')) {
+        const t = e.at || e.createdAt || '';
+        if (!first.has(e.page) || t < first.get(e.page)) first.set(e.page, t);
+      }
+      for (const c of this.s.raw('collections')) {
+        const p = colPage(c.id), t = (c.createdAt || '').replace('Z', '');
+        if (!first.has(p) || t < first.get(p)) first.set(p, t);
+      }
+      const order = [...first.entries()].sort((a, b) => a[1].localeCompare(b[1]) || a[0].localeCompare(b[0]));
+      const nums = new Map();
+      let n = 1;
+      for (const [p] of order) { nums.set(p, n); n += pageInfo(p).type === 'month' ? 2 : 1; }
+      this._pn = { nums, next: n };
+      this._pnVer = this.s.version;
+    }
+    return this._pn.nums.get(page) || this._pn.next;
+  }
+
   stats(date) {
     const list = this.entries(dayPage(date));
     const tasks = list.filter((e) => e.kind === 'task' && e.status !== 'migrated' && e.status !== 'scheduled' && e.status !== 'cancelled');
