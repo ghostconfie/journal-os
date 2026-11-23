@@ -130,7 +130,7 @@ select, input[type='date'], input[type='time'] { background: var(--chip); border
 .page-head { min-height: calc(var(--line) * 3); display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding-bottom: 3px; }
 .ph-text { min-width: 0; padding-top: calc(var(--line) * 0.5); }
 .hand-title { font-family: var(--hand); font-weight: 400; color: var(--ink); margin: 0; font-size: calc(26px * var(--hand-scale)); line-height: calc(var(--line) * 1.5); }
-.ph-sub { font-size: 13px; color: var(--soft); line-height: var(--line); height: var(--line); overflow: hidden; }
+.ph-sub { font-size: 13px; color: var(--soft); line-height: var(--line); min-height: var(--line); }
 .ph-nav { display: flex; align-items: center; gap: 4px; height: var(--line); margin-bottom: 0; }
 .date-pick { padding: 4px 8px; font-size: 13px; }
 .page-body { flex: 1; }

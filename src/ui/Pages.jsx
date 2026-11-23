@@ -166,7 +166,7 @@ export function MigrateView({ journal, onOpen }) {
   for (const e of list) { const g = groups[groups.length - 1]; if (g && g.page === e.page) g.items.push(e); else groups.push({ page: e.page, items: [e] }); }
   const nextM = shiftMonth(monthKey(today), 1);
   return (
-    <Paper title="Migration" sub="Every open task from an earlier page needs a decision: still worth doing? Carry it to today, schedule it, or strike it out.">
+    <Paper title="Migration" sub="Open tasks from earlier pages: carry forward, schedule, or strike out.">
       {list.length === 0 && <div class="empty"><p class="hand">All clear. Nothing left behind.</p></div>}
       {list.length > 1 && (
         <div class="row wrap">
