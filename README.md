@@ -36,7 +36,9 @@ day. It keeps its pillar label, and ticking it off on the day ticks it off in th
 Each day has four tabs:
 - **Schedule**: all 24 hours, half an hour per dot-grid line. Anything with a start time is drawn as a sketched box
   from its start to its finish, coloured in with the pencil colour you choose (or its pillar's colour). Tap an empty
-  time to block it out. Priorities, deadlines and anything without a time sit beside it (above it on a phone).
+  time to block it out. Drag a block to move it, or drag its bottom edge to change its finish time (snaps to
+  15 minutes; on a phone use the ✥ handle and the bar at the bottom). Priorities, deadlines and anything without
+  a time sit beside it (above it on a phone).
 - **Tasks**: the bullet-journal rapid log of tasks and events.
 - **Journal**: notes, ideas and focus sessions, written across the page with the time in the margin.
 - **Creative space**: drawings, photos, videos, mind maps and sticky notes.

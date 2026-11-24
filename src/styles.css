@@ -507,3 +507,15 @@ button { cursor: pointer; }
 @media (max-width: 860px) {
   .dayplan { grid-template-columns: 1fr; grid-template-areas: 'top' 'tl' 'rest'; }
 }
+
+/* moving and stretching time blocks */
+.tblk { touch-action: pan-y; user-select: none; -webkit-user-select: none; }
+@media (pointer: fine) { .tblk { cursor: grab; } .tblk-sig, .tblk-txt { cursor: pointer; } }
+.tblk.dragging { z-index: 5; cursor: grabbing; filter: drop-shadow(0 6px 8px rgba(0, 0, 0, 0.18)); }
+.tblk-grip { position: absolute; right: 3px; top: 2px; width: 26px; height: 26px; display: grid; place-items: center; font-size: 15px; color: color-mix(in srgb, var(--ink) 55%, transparent); touch-action: none; cursor: grab; opacity: 0; transition: opacity .15s; }
+.tblk-resize { position: absolute; left: 20%; right: 20%; bottom: -5px; height: 12px; touch-action: none; cursor: ns-resize; }
+.tblk-resize::after { content: ''; position: absolute; left: 50%; top: 4px; width: 26px; height: 3px; margin-left: -13px; border-radius: 2px; background: color-mix(in srgb, var(--ink) 45%, transparent); opacity: 0; transition: opacity .15s; }
+.tblk:hover .tblk-grip, .tblk:hover .tblk-resize::after, .tblk.dragging .tblk-resize::after { opacity: 1; }
+@media (pointer: coarse) { .tblk-grip, .tblk-resize::after { opacity: 0.8; } .tblk-resize { height: 18px; bottom: -8px; } }
+.tblk-ghost { position: absolute; right: 0; top: -1.6em; white-space: nowrap; font-family: var(--hand); font-size: calc(14px * var(--hand-scale)); color: var(--paper); background: var(--ink); padding: 0 8px; border-radius: 3px; z-index: 6; }
+.tblk.compact .tblk-grip { top: 50%; transform: translateY(-50%); }

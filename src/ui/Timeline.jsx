@@ -166,8 +166,56 @@ export function DayTimeline({ journal, date, onOpen, onNew }) {
   }, [date, line > 0]);
   const px = (min) => (min / 30) * line;
   const items = layoutDay(journal.entries(dayPage(date)).filter((e) => e.status !== 'migrated' && e.status !== 'scheduled'));
+  // ---- moving and stretching blocks ----
+  // Drag a block (or its ✥ handle) to move it; drag the bottom edge to change its finish time. Snaps to 15 min.
+  // With a mouse the whole block drags; on touch the handles do, so the page still scrolls normally.
+  const [drag, setDrag] = useState(null); // { id, mode, s, end, d }
+  const moved = useRef(false);
+  const startDrag = (ev, it, mode, handle) => {
+    if (ev.button > 0) return;
+    if (!handle && ev.pointerType !== 'mouse') return;
+    ev.stopPropagation();
+    if (handle) ev.preventDefault();
+    const y0 = ev.clientY;
+    moved.current = false;
+    let d = 0;
+    const cur = { id: it.e.id, mode, s: it.s, end: it.end, d: 0 };
+    const onMove = (m) => {
+      const dy = m.clientY - y0;
+      if (!moved.current && Math.abs(dy) < 5) return;
+      moved.current = true;
+      m.preventDefault();
+      const raw = (dy / line) * 30;
+      d = Math.round(raw / 15) * 15;
+      if (mode === 'move') d = Math.max(-it.s, Math.min(24 * 60 - it.end, d));
+      else d = Math.max(it.s + 15 - it.end, Math.min(24 * 60 - it.end, d));
+      setDrag({ ...cur, d });
+    };
+    const onUp = () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onUp);
+      setDrag(null);
+      if (!moved.current || !d) return;
+      const e = it.e;
+      const clampT = (m) => fromMin(Math.min(m, 23 * 60 + 59));
+      if (mode === 'move') {
+        journal.update(e.id, { time: clampT(it.s + d), endTime: e.endTime ? clampT(it.end + d) : null, block: null });
+        toast(`Moved to ${clampT(it.s + d)}${e.endTime ? `–${clampT(it.end + d)}` : ''}`);
+      } else {
+        journal.update(e.id, { endTime: clampT(it.end + d) });
+        toast(`Now ${e.time}–${clampT(it.end + d)}`);
+      }
+      setTimeout(() => { moved.current = false; }, 0);
+    };
+    window.addEventListener('pointermove', onMove, { passive: false });
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onUp);
+  };
+  const swallow = (ev) => { if (moved.current) { ev.stopPropagation(); ev.preventDefault(); return true; } return false; };
+
   const tap = (ev) => {
-    if (ev.target.closest('.tblk')) return;
+    if (moved.current || ev.target.closest('.tblk')) return;
     const r = col.current.getBoundingClientRect();
     const slot = Math.max(0, Math.min(47, Math.floor((ev.clientY - r.top) / line)));
     onNew(fromMin(slot * 30));
@@ -181,22 +229,30 @@ export function DayTimeline({ journal, date, onOpen, onNew }) {
       <div class="tl-col" ref={col} style={`height:${line * 48}px`} onClick={tap} role="list" aria-label="Schedule for the day. Tap an empty time to block it out.">
         {HOURS.map((h) => <div class={`tl-rule ${h % 6 === 0 ? 'major' : ''}`} style={`top:${px(h * 60)}px`} />)}
         {now !== null && <div class="tl-now" style={`top:${px(now)}px`}><span>{nowLondon().time}</span></div>}
-        {items.map(({ e, s, end, lane, lanes }) => {
+        {items.map((it) => {
+          const { e, lane, lanes } = it;
+          const dg = drag && drag.id === e.id ? drag : null;
+          const s = it.s + (dg && dg.mode === 'move' ? dg.d : 0);
+          const end = it.end + (dg ? dg.d : 0);
           const top = px(s) + 1, h = Math.max(line - 2, px(end - s) - 2);
           const gutter = 4, bw = Math.max(40, (w - gutter * (lanes - 1)) / lanes), left = lane * (bw + gutter);
           const done = e.status === 'done', struck = e.status === 'cancelled';
           const compact = h < line * 1.5;
           return (
-            <div role="listitem" class={`tblk ${done ? 'done' : ''} ${struck ? 'struck' : ''} ${compact ? 'compact' : ''}`} style={`top:${top}px;left:${left}px;width:${bw}px;height:${h}px`}>
+            <div role="listitem" class={`tblk ${done ? 'done' : ''} ${struck ? 'struck' : ''} ${compact ? 'compact' : ''} ${dg ? 'dragging' : ''}`} style={`top:${top}px;left:${left}px;width:${bw}px;height:${h}px`}
+              onPointerDown={(ev) => startDrag(ev, it, 'move', false)} onClickCapture={swallow}>
               <PencilBox w={Math.round(bw)} h={Math.round(h)} color={pencilOf(e)} seed={e.id} faded={done || struck} />
               <div class="tblk-in">
                 <button class="tblk-sig" onClick={() => (e.kind === 'task' && !struck ? journal.toggleDone(e.id) : onOpen(e))} aria-label={e.kind === 'task' ? (done ? 'Reopen' : 'Tick off') : 'Open'}>
                   {e.priority ? '*' : ''}{e.kind === 'task' ? (done ? '×' : '•') : KINDS[e.kind]?.glyph}
                 </button>
                 <button class="tblk-txt" onClick={() => onOpen(e)}>
-                  <span class="tblk-time">{e.time}{e.endTime ? `–${e.endTime}` : ''}</span> <Ink text={e.text} id={e.id} />
+                  <span class="tblk-time">{fromMin(s)}{e.endTime || dg?.mode === 'resize' ? `–${fromMin(Math.min(end, 23 * 60 + 59))}` : ''}</span> <Ink text={e.text} id={e.id} />
                 </button>
               </div>
+              <span class="tblk-grip" title="Drag to move" aria-hidden="true" onPointerDown={(ev) => startDrag(ev, it, 'move', true)}>✥</span>
+              <span class="tblk-resize" title="Drag to change the finish time" aria-hidden="true" onPointerDown={(ev) => startDrag(ev, it, 'resize', true)} />
+              {dg && <span class="tblk-ghost">{fromMin(s)}–{fromMin(Math.min(end, 23 * 60 + 59))}</span>}
             </div>
           );
         })}
