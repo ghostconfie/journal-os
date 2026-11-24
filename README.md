@@ -33,9 +33,13 @@ events, notes, ideas, priorities). Press **plan →** on a line to put it on a d
 day. It keeps its pillar label, and ticking it off on the day ticks it off in the pillar too.
 
 ## Days
-Each day has three tabs: **Log** (the rapid log / interstitial journal), **Plan & time blocks** (priorities for
-the day, each time block in order, deadlines, and anything without a time yet; **Pull from pillars** brings tasks
-in), and **Creative space** (drawings, photos, videos, mind maps and sticky notes).
+Each day has four tabs:
+- **Schedule**: all 24 hours, half an hour per dot-grid line. Anything with a start time is drawn as a sketched box
+  from its start to its finish, coloured in with the pencil colour you choose (or its pillar's colour). Tap an empty
+  time to block it out. Priorities, deadlines and anything without a time sit beside it (above it on a phone).
+- **Tasks**: the bullet-journal rapid log of tasks and events.
+- **Journal**: notes, ideas and focus sessions, written across the page with the time in the margin.
+- **Creative space**: drawings, photos, videos, mind maps and sticky notes.
 Photos are shrunk to sync. Uploaded videos stay on the device they were added from; video links play everywhere.
 
 ## Calendar

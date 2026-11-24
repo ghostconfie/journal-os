@@ -97,3 +97,22 @@ describe('planning from pillars into days', () => {
     expect(back.blocks).toHaveLength(2);
   });
 });
+
+import { layoutDay, pencilOf } from '../src/lib/journal.js';
+describe('24-hour timeline', () => {
+  it('lays overlapping blocks side by side and gives untimed finishes 30 minutes', () => {
+    const e = (id, time, endTime) => ({ id, kind: 'task', time, endTime });
+    const out = layoutDay([e('a', '09:00', '11:00'), e('b', '10:00', '10:30'), e('c', '10:15', null), e('d', '12:00', '13:00'), { id: 'n', kind: 'note' }]);
+    const by = Object.fromEntries(out.map((x) => [x.e.id, x]));
+    expect(by.a).toMatchObject({ s: 540, end: 660, lane: 0, lanes: 3 });
+    expect(by.b).toMatchObject({ lane: 1, lanes: 3 });
+    expect(by.c).toMatchObject({ s: 615, end: 645, lane: 2 });
+    expect(by.d).toMatchObject({ lane: 0, lanes: 1 });
+    expect(out).toHaveLength(4);
+  });
+  it('picks a pencil colour from the line, then its pillar', () => {
+    expect(pencilOf({ color: 'teal', pillar: 'physical' })).toBe('teal');
+    expect(pencilOf({ pillar: 'physical' })).toBe('green');
+    expect(pencilOf({ kind: 'task' })).toBe('blue');
+  });
+});

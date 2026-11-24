@@ -4,6 +4,7 @@ import { SettingsView } from './Settings.jsx';
 import { EntrySheet } from './Entry.jsx';
 import { PillarsView, PlanSheet, PullSheet } from './Plan.jsx';
 import { YearView, MonthCalendar } from './Calendar.jsx';
+import { BlockSheet, PencilDefs } from './Timeline.jsx';
 import { FocusBar, SwitchSheet, StartSheet } from './Focus.jsx';
 import { Toasts, useVersion, useTick, toast } from './common.jsx';
 import { onPrefs } from './prefs.js';
@@ -13,7 +14,7 @@ function parseHash() {
   const [, name = 'day', a = '', ...rest] = (location.hash || '#/').split('/');
   const arg = decodeURIComponent([a, ...rest].join('/'));
   switch (name) {
-    case 'day': return { name, date: /^\d{4}-\d{2}-\d{2}$/.test(a) ? a : todayStr(), tab: ['plan', 'create'].includes(rest[0]) ? rest[0] : 'log' };
+    case 'day': return { name, date: /^\d{4}-\d{2}-\d{2}$/.test(a) ? a : todayStr(), tab: ['log', 'journal', 'create'].includes(rest[0]) ? rest[0] : 'plan' };
     case 'pillars': return { name, focus: arg };
     case 'cal': return /^\d{4}-\d{2}$/.test(arg) ? { name: 'calmonth', m: arg } : { name: 'calyear', y: /^\d{4}$/.test(arg) ? arg : todayStr().slice(0, 4) };
     case 'month': return { name, m: /^\d{4}-\d{2}$/.test(arg) ? arg : monthKey(todayStr()) };
@@ -32,6 +33,7 @@ export function App({ journal, store, sync: initialSync, onStatus }) {
   const [open, setOpen] = useState(null);
   const [sheet, setSheet] = useState(null); // 'switch' | 'start' | 'pull'
   const [planning, setPlanning] = useState(null); // { e, date }
+  const [newBlock, setNewBlock] = useState(null); // start time for a new time block
   const [, setP] = useState(0);
   useEffect(() => {
     const h = () => { setRoute(parseHash()); window.scrollTo(0, 0); };
@@ -61,7 +63,7 @@ export function App({ journal, store, sync: initialSync, onStatus }) {
     case 'index': view = <IndexView journal={journal} />; break;
     case 'search': view = <SearchView journal={journal} q={route.q} onOpen={setOpen} />; break;
     case 'settings': view = <SettingsView journal={journal} store={store} sync={sync} />; break;
-    default: view = <DayView key={route.date} journal={journal} date={route.date} tab={route.tab} onOpen={setOpen} onPlan={onPlan} onPull={() => setSheet('pull')} />;
+    default: view = <DayView key={route.date} journal={journal} date={route.date} tab={route.tab} onOpen={setOpen} onPlan={onPlan} onPull={() => setSheet('pull')} onNew={setNewBlock} />;
   }
   const is = (n, extra = true) => (route.name === n && extra ? 'on' : '');
   const cols = journal.collections();
@@ -72,8 +74,8 @@ export function App({ journal, store, sync: initialSync, onStatus }) {
       <aside class="side" aria-label="Notebook index">
         <div class="brand"><img src="icons/icon-192.png" alt="" width="28" height="28" /> <span class="hand">Notebook</span></div>
         <nav>
-          <a class={is('day', route.date === today && route.tab !== 'plan')} href={`#/day/${today}`}>Today</a>
-          <a class={is('day', route.date === today && route.tab === 'plan')} href={`#/day/${today}/plan`}>Today's plan</a>
+          <a class={is('day', route.date === today && route.tab !== 'journal')} href={`#/day/${today}`}>Today</a>
+          <a class={is('day', route.date === today && route.tab === 'journal')} href={`#/day/${today}/journal`}>Today's journal</a>
           <a class={is('pillars')} href="#/pillars">Pillars</a>
           <a class={route.name.startsWith('cal') ? 'on' : ''} href={`#/cal/${monthKey(today)}`}>Calendar</a>
           <a class={is('month')} href={`#/month/${monthKey(today)}`}>Monthly log</a>
@@ -90,7 +92,7 @@ export function App({ journal, store, sync: initialSync, onStatus }) {
       </aside>
 
       <main class="main">
-        <div class={`topbar ${['month', 'pillars', 'calyear', 'calmonth'].includes(route.name) ? 'wide' : ''}`}>
+        <div class={`topbar ${['month', 'pillars', 'calyear', 'calmonth'].includes(route.name) || (route.name === 'day' && route.tab === 'plan') ? 'wide' : ''}`}>
           <FocusBar journal={journal} onSwitch={() => setSheet('switch')} onStart={() => setSheet('start')} />
           <span class={`sync-dot ${syncCls}`} title={sync?.label} aria-label={sync?.label} />
         </div>
@@ -106,6 +108,8 @@ export function App({ journal, store, sync: initialSync, onStatus }) {
       </nav>
 
       {open && <EntrySheet e={open} journal={journal} onClose={() => setOpen(null)} onFocus={onFocus} onPlan={(e) => onPlan(e)} />}
+      {newBlock && <BlockSheet journal={journal} date={route.date || today} start={newBlock} onClose={() => setNewBlock(null)} />}
+      <PencilDefs />
       {planning && <PlanSheet e={planning.e} defaultDate={planning.date} journal={journal} onClose={() => setPlanning(null)} />}
       {sheet === 'pull' && <PullSheet journal={journal} date={route.date || today} onClose={() => setSheet(null)} onPick={(e) => { setSheet(null); onPlan(e, route.date || today); }} />}
       {sheet === 'switch' && <SwitchSheet journal={journal} onClose={() => setSheet(null)} />}

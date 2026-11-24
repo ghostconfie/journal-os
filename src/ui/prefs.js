@@ -54,7 +54,7 @@ export function applyPrefs() {
   r.style.setProperty('--hand-scale', f.size);
   r.style.setProperty('--sit', f.sit);
   r.style.setProperty('--ink', night ? ink.night : ink.day);
-  document.querySelector('meta[name=theme-color]')?.setAttribute('content', night ? '#121110' : '#d8d0c0');
+  document.querySelector('meta[name=theme-color]')?.setAttribute('content', night ? '#121110' : '#f3f3f1');
 }
 
 if (typeof matchMedia !== 'undefined') {

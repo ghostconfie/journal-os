@@ -4,7 +4,8 @@ import { EntryLine, PenLine, WhenFields } from './Entry.jsx';
 import { Paper } from './Pages.jsx';
 import { Sheet, shortDay, toast, useTick } from './common.jsx';
 import { markFresh } from './Ink.jsx';
-import { BLOCKS, PILLARS, dayPage, pillarPage, pillarOf, blockOf } from '../lib/journal.js';
+import { DayTimeline, PencilPicker } from './Timeline.jsx';
+import { PILLARS, pillarPage, pillarOf, blockOf, pencilOf } from '../lib/journal.js';
 import { addDays, nowLondon, todayStr } from '../lib/util.js';
 
 /** Choose the day, time block, start / finish and whether it's a priority for that day. */
@@ -20,10 +21,11 @@ export function PlanSheet({ e, journal, onClose, defaultDate }) {
     return n;
   });
   const [prio, setPrio] = useState(!!e.priority);
+  const [color, setColor] = useState(pencilOf(e));
   const days = Array.from({ length: 7 }, (_, i) => addDays(today, i));
   const go = () => {
     if (when.time && when.endTime && when.endTime <= when.time) { alert('The finish time is before the start time.'); return; }
-    const r = journal.plan(e.id, { date, time: when.time || null, endTime: when.endTime || null, block: when.block, priority: prio, due: when.due || null });
+    const r = journal.plan(e.id, { date, time: when.time || null, endTime: when.endTime || null, block: when.block, priority: prio, due: when.due || null, color });
     markFresh(r?.id);
     toast(`Planned for ${date === today ? 'today' : shortDay(date)}${when.time ? ` at ${when.time}` : ''}`);
     onClose();
@@ -39,6 +41,8 @@ export function PlanSheet({ e, journal, onClose, defaultDate }) {
         <input type="date" value={date} onInput={(ev) => ev.currentTarget.value && setDate(ev.currentTarget.value)} aria-label="Pick a day" />
       </div>
       <WhenFields v={when} set={set} />
+      <div class="group-label">Pencil colour for its time block</div>
+      <PencilPicker value={color} onChange={setColor} />
       <label class="check"><input type="checkbox" checked={prio} onChange={(ev) => setPrio(ev.currentTarget.checked)} /> * A priority for that day</label>
       <div class="row spread sheet-foot">
         <span />
@@ -69,57 +73,37 @@ export function PullSheet({ journal, date, onPick, onClose }) {
   );
 }
 
-function BlockAdder({ journal, date, block }) {
-  const [t, setT] = useState('');
-  const add = () => {
-    if (!t.trim()) return;
-    const e = journal.write(dayPage(date), t.trim(), { defaultKind: 'task', block: block.id });
-    markFresh(e?.id);
-    setT('');
-  };
-  return (
-    <input class="block-add" value={t} placeholder={`+ add to ${block.label.toLowerCase()}…`} aria-label={`Add to ${block.label}`}
-      onInput={(ev) => setT(ev.currentTarget.value)} onKeyDown={(ev) => { if (ev.key === 'Enter') { ev.preventDefault(); add(); } }} />
-  );
-}
-
-/** The day's plan: priorities first, then each time block in order, then anything without a time. */
-export function DayPlan({ journal, date, onOpen, onPlan, onPull }) {
-  useTick(60000);
+/** The day's plan: priorities and deadlines at the top, then the full 24-hour schedule with time blocks. */
+export function DayPlan({ journal, date, onOpen, onPlan, onPull, onNew }) {
   const plan = journal.dayPlan(date);
   const today = todayStr();
-  const now = date === today ? nowLondon().time : null;
   const due = date >= today ? journal.dueBy(date) : [];
+  const untimed = plan.blocks.flatMap((b) => b.items.filter((e) => !e.time)).concat(plan.loose).filter((e) => !e.priority);
   const line = (e) => <EntryLine key={e.id} e={e} journal={journal} onOpen={onOpen} onPlan={onPlan} />;
   return (
     <div class="dayplan">
-      <div class="row wrap plan-actions">
-        <button class="btn small" onClick={onPull}>↓ Pull from pillars</button>
+      <div class="plan-top">
+        <div class="row wrap plan-actions">
+          <button class="btn small" onClick={() => onNew(nowLondon().time.slice(0, 2) + ':00')}>▭ New time block</button>
+          <button class="btn small" onClick={onPull}>↓ Pull from pillars</button>
+        </div>
+        <h2 class="sec">* Priorities for the day</h2>
+        {plan.priorities.length ? <ul class="lines">{plan.priorities.map(line)}</ul> : <p class="muted small">Star something (*) to make it a priority for the day.</p>}
       </div>
-      <h2 class="sec">* Priorities for the day</h2>
-      {plan.priorities.length ? <ul class="lines">{plan.priorities.map(line)}</ul> : <p class="muted small">Star something (*) to make it a priority for the day.</p>}
-      {due.length > 0 && (
-        <>
-          <h2 class="sec">Deadlines</h2>
-          <ul class="lines">{due.map((e) => <EntryLine key={e.id} e={e} journal={journal} onOpen={onOpen} onPlan={onPlan} showPage />)}</ul>
-        </>
-      )}
-      {plan.blocks.map((b) => {
-        const live = now && now >= b.start && now < b.end;
-        return (
-          <section class={`tblock ${live ? 'live' : ''}`}>
-            <h2 class="sec">{b.label} <span class="tb-time">{b.start}–{b.end === '24:00' ? '00:00' : b.end}</span>{live && <span class="now-tag">now {now}</span>}</h2>
-            <ul class="lines">{b.items.map(line)}</ul>
-            <BlockAdder journal={journal} date={date} block={b} />
-          </section>
-        );
-      })}
-      {plan.loose.length > 0 && (
-        <>
-          <h2 class="sec">Not given a time yet</h2>
-          <ul class="lines">{plan.loose.map(line)}</ul>
-        </>
-      )}
+      <div class="plan-tl">
+        <h2 class="sec">Schedule <span class="tb-time">tap an empty time to block it out</span></h2>
+        <DayTimeline journal={journal} date={date} onOpen={onOpen} onNew={onNew} />
+      </div>
+      <div class="plan-rest">
+        {due.length > 0 && (
+          <>
+            <h2 class="sec">Deadlines</h2>
+            <ul class="lines">{due.map((e) => <EntryLine key={e.id} e={e} journal={journal} onOpen={onOpen} onPlan={onPlan} showPage />)}</ul>
+          </>
+        )}
+        <h2 class="sec">No set time yet</h2>
+        {untimed.length ? <ul class="lines">{untimed.map(line)}</ul> : <p class="muted small">Everything on today has a time.</p>}
+      </div>
     </div>
   );
 }

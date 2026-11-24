@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import { Ink, markFresh } from './Ink.jsx';
 import { Sheet, fmtMins, pageLabel, pageHref, shortDay, toast, dueLabel } from './common.jsx';
 import { getPrefs } from './prefs.js';
-import { KINDS, BLOCKS, PILLARS, dayPage, monthPage, colPage, pillarPage, pageInfo, nextMonths, pillarOf, blockOf } from '../lib/journal.js';
+import { KINDS, BLOCKS, PILLARS, dayPage, monthPage, colPage, pillarPage, pageInfo, nextMonths, pillarOf, blockOf, pencilOf } from '../lib/journal.js';
+import { PencilPicker } from './Timeline.jsx';
 import { addDays, monthKey, monthLabel, todayStr } from '../lib/util.js';
 
 function glyphFor(e) {
@@ -68,7 +69,7 @@ export function PenLine({ journal, page, kind: fixedKind, placeholder, onWritten
   const [kind, setKind] = useState(fixedKind || 'auto');
   const [prio, setPrio] = useState(false);
   const ta = useRef();
-  useEffect(() => { setKind(fixedKind || 'auto'); }, [page]);
+  useEffect(() => { setKind(fixedKind || 'auto'); }, [page, fixedKind]);
   const grow = () => { const el = ta.current; if (el) { el.style.height = 'auto'; el.style.height = `${el.scrollHeight}px`; } };
   useEffect(grow, [text]);
   const write = () => {
@@ -153,6 +154,7 @@ export function EntrySheet({ e: initial, journal, onClose, onFocus, onPlan }) {
   const setWhen = (x) => setWhenState((o) => ({ ...o, ...x }));
   const [prio, setPrio] = useState(e.priority);
   const [pillar, setPillar] = useState(e.pillar || '');
+  const [color, setColor] = useState(e.color || '');
   const [moveDate, setMoveDate] = useState(addDays(todayStr(), 1));
   const today = todayStr();
   const isTaskish = kind === 'task' || kind === 'event';
@@ -160,7 +162,7 @@ export function EntrySheet({ e: initial, journal, onClose, onFocus, onPlan }) {
   const p = pageInfo(e.page);
   const save = () => {
     if (!text.trim()) return;
-    const f = { text: text.trim(), kind, priority: prio, due: when.due || null };
+    const f = { text: text.trim(), kind, priority: prio, due: when.due || null, color: color || null };
     if (e.kind !== 'session') Object.assign(f, { time: when.time || null, endTime: when.endTime || null, block: when.block || null });
     if (p.type === 'pillar' && pillar && pillar !== p.key) Object.assign(f, { page: pillarPage(pillar), pillar });
     else f.pillar = pillar || null;
@@ -186,6 +188,12 @@ export function EntrySheet({ e: initial, journal, onClose, onFocus, onPlan }) {
             <button class={`chip ${prio ? 'on' : ''}`} onClick={() => setPrio(!prio)}><b>*</b> Priority</button>
           </div>
           <WhenFields v={when} set={setWhen} showBlock={p.type === 'day'} />
+          {(isTaskish || when.time) && (
+            <>
+              <div class="group-label">Pencil colour for its time block</div>
+              <PencilPicker value={color || pencilOf({ ...e, pillar })} onChange={setColor} />
+            </>
+          )}
           <div class="row wrap">
             <span class="lbl">Pillar</span>
             <button class={`chip ${!pillar ? 'on' : ''}`} onClick={() => setPillar('')}>none</button>

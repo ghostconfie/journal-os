@@ -48,9 +48,13 @@ function Lines({ list, journal, onOpen, page, showPage }) {
 
 const Arrow = ({ href, dir, label }) => <a class="icon-btn" href={href} aria-label={label}>{dir < 0 ? '‹' : '›'}</a>;
 
-export function DayView({ journal, date, tab = 'log', onOpen, onPlan, onPull }) {
+const JOURNAL_KINDS = new Set(['note', 'idea', 'session']);
+
+export function DayView({ journal, date, tab = 'plan', onOpen, onPlan, onPull, onNew }) {
   const today = todayStr();
-  const list = journal.entries(dayPage(date));
+  const all = journal.entries(dayPage(date));
+  const tasks = all.filter((e) => !JOURNAL_KINDS.has(e.kind));
+  const notes = all.filter((e) => JOURNAL_KINDS.has(e.kind));
   const st = journal.stats(date);
   const pending = date === today ? journal.needsMigration(today).length : 0;
   const sub = (
@@ -69,27 +73,54 @@ export function DayView({ journal, date, tab = 'log', onOpen, onPlan, onPull }) 
     </>
   );
   const cards = journal.cards(dayPage(date)).length;
+  const T = (id, label, n) => <a class={tab === id ? 'on' : ''} href={`#/day/${date}/${id}`}>{label}{n ? ` (${n})` : ''}</a>;
   const tabs = (
     <nav class="page-tabs" aria-label="Sections of this day">
-      <a class={tab === 'log' ? 'on' : ''} href={`#/day/${date}/log`}>Log</a>
-      <a class={tab === 'plan' ? 'on' : ''} href={`#/day/${date}/plan`}>Plan &amp; time blocks</a>
-      <a class={tab === 'create' ? 'on' : ''} href={`#/day/${date}/create`}>Creative space{cards ? ` (${cards})` : ''}</a>
+      {T('plan', 'Schedule')}
+      {T('log', 'Tasks', tasks.filter((e) => e.status === 'open').length)}
+      {T('journal', 'Journal', notes.length)}
+      {T('create', 'Creative space', cards)}
     </nav>
   );
-  const foot = tab === 'create' ? null : <PenLine journal={journal} page={dayPage(date)} kind={tab === 'plan' ? 'task' : undefined} placeholder={tab === 'plan' ? 'Add to the day… (@9-10:30 sets the time, *priority)' : undefined} />;
+  const foot =
+    tab === 'create' ? null
+      : tab === 'journal' ? <PenLine journal={journal} page={dayPage(date)} kind="note" placeholder="Write in your journal…" />
+      : <PenLine journal={journal} page={dayPage(date)} kind="task" placeholder={tab === 'plan' ? 'Add to the day…' : 'New task…'} />;
   return (
-    <Paper title={dayTitle(date)} sub={sub} nav={nav} pno={journal.pageNumber(dayPage(date))} foot={foot}>
+    <Paper title={dayTitle(date)} sub={sub} nav={nav} spread={tab === 'plan'} pno={journal.pageNumber(dayPage(date))} foot={foot}>
       {tabs}
-      {tab === 'plan' && <DayPlan journal={journal} date={date} onOpen={onOpen} onPlan={onPlan} onPull={onPull} />}
+      {tab === 'plan' && <DayPlan journal={journal} date={date} onOpen={onOpen} onPlan={onPlan} onPull={onPull} onNew={onNew} />}
       {tab === 'create' && <CreativeSpace journal={journal} page={dayPage(date)} />}
       {tab === 'log' && pending > 0 && (
         <a class="banner" href="#/migrate">
           <b>{pending}</b> open task{pending === 1 ? '' : 's'} from earlier pages. Migrate, schedule or strike them out →
         </a>
       )}
-      {tab === 'log' && list.length === 0 && <EmptyDay isToday={date === today} />}
-      {tab === 'log' && <Lines list={list} journal={journal} onOpen={onOpen} page={dayPage(date)} />}
+      {tab === 'log' && tasks.length === 0 && <EmptyDay isToday={date === today} />}
+      {tab === 'log' && <Lines list={tasks} journal={journal} onOpen={onOpen} page={dayPage(date)} />}
+      {tab === 'journal' && notes.length === 0 && (
+        <div class="empty">
+          <p class="hand">{date === today ? 'Your journal for today. Write what you’re doing, thinking or feeling, as often as you like.' : 'Nothing written in the journal this day.'}</p>
+          {date === today && <ul class="howto"><li>Each entry gets the time in the margin, so the page becomes a timeline of your day.</li><li>Focus sessions you log from the tape at the top land here too.</li><li>Start a line with <b>!</b> for an idea.</li></ul>}
+        </div>
+      )}
+      {tab === 'journal' && <ul class="lines journal-lines">{notes.map((e) => <JournalEntry key={e.id} e={e} onOpen={onOpen} />)}<li class="end" id={`end-${dayPage(date)}`} aria-hidden="true" /></ul>}
     </Paper>
+  );
+}
+
+/** A journal entry: the time in the margin and the writing flowing across the page, no bullet. */
+function JournalEntry({ e, onOpen }) {
+  const t = e.kind === 'session' ? e.time : (e.at || '').slice(11, 16);
+  return (
+    <li class={`jentry k-${e.kind}`}>
+      <span class="margin">{t}</span>
+      <button class="jbody" onClick={() => onOpen(e)}>
+        {e.kind === 'idea' && <b class="jmark">! </b>}
+        {e.kind === 'session' && <span class="meta-ink">◷ {e.time}–{e.endTime} · {fmtMins(e.minutes)} </span>}
+        <Ink text={e.text} id={e.id} />
+      </button>
+    </li>
   );
 }
 

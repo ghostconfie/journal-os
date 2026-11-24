@@ -26,6 +26,54 @@ export function blockOf(time) {
   const b = BLOCKS.find((x) => time >= x.start && time < x.end);
   return b ? b.id : time < '05:00' ? 'night' : null;
 }
+/** Coloured pencils for filling in time blocks. A line uses its own colour, else its pillar's. */
+export const PENCILS = {
+  red: { label: 'Red', hex: '#d64541' },
+  orange: { label: 'Orange', hex: '#ee8a2c' },
+  yellow: { label: 'Yellow', hex: '#efbf2a' },
+  green: { label: 'Green', hex: '#4c9a47' },
+  teal: { label: 'Teal', hex: '#2a9a8c' },
+  blue: { label: 'Blue', hex: '#3a70c8' },
+  purple: { label: 'Purple', hex: '#8a5bc2' },
+  pink: { label: 'Pink', hex: '#e077a6' },
+  brown: { label: 'Brown', hex: '#9a6a42' },
+  grey: { label: 'Grey', hex: '#8b8b8b' },
+};
+const PILLAR_PENCIL = { physical: 'green', spiritual: 'purple', mental: 'teal', financial: 'yellow', relational: 'pink', todo: 'orange' };
+export const pencilOf = (e) => PENCILS[e?.color] ? e.color : PILLAR_PENCIL[e?.pillar] || (e?.kind === 'event' ? 'red' : 'blue');
+
+const toMin = (t) => { const [h, m] = String(t).split(':').map(Number); return h * 60 + (m || 0); };
+const fromMin = (m) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+export { toMin, fromMin };
+
+/**
+ * Lay a day's timed lines out on a 24-hour timeline: each gets a start and end in minutes (a line with no finish
+ * time shows as 30 minutes) and a lane, so overlapping blocks sit side by side.
+ */
+export function layoutDay(entries) {
+  const items = entries
+    .filter((e) => e.time && e.kind !== 'session')
+    .map((e) => {
+      const s = toMin(e.time);
+      let end = e.endTime ? toMin(e.endTime) : s + 30;
+      if (end <= s) end = Math.min(24 * 60, s + 30);
+      return { e, s, end, lane: 0, lanes: 1 };
+    })
+    .sort((a, b) => a.s - b.s || b.end - a.end);
+  let cluster = [], clusterEnd = -1;
+  const close = () => { const n = Math.max(1, ...cluster.map((x) => x.lane + 1)); for (const x of cluster) x.lanes = n; cluster = []; };
+  for (const it of items) {
+    if (it.s >= clusterEnd) { close(); clusterEnd = -1; }
+    const used = new Set(cluster.filter((x) => x.end > it.s).map((x) => x.lane));
+    let l = 0; while (used.has(l)) l++;
+    it.lane = l;
+    cluster.push(it);
+    clusterEnd = Math.max(clusterEnd, it.end);
+  }
+  close();
+  return items;
+}
+
 /** The block an entry shows under: the one chosen, or the one its start time falls in. */
 export const entryBlock = (e) => e.block || blockOf(e.time);
 
@@ -157,7 +205,7 @@ export class Journal {
       priority: p.priority, time: p.time || null, at: now.iso, day: p.day || 0, order: opts.order ?? Date.now(),
       tags: p.tags || tagsOf(p.text), movedFrom: opts.movedFrom || null, focusOf: opts.focusOf || null,
       minutes: opts.minutes || 0, endTime: p.endTime || opts.endTime || null, due: p.due || null,
-      block: opts.block || p.block || null,
+      block: opts.block || p.block || null, color: p.color || opts.color || null,
       pillar: p.pillar || opts.pillar || (pageInfo(page).type === 'pillar' ? pageInfo(page).key : null),
     });
     this.s.commit();
@@ -192,7 +240,7 @@ export class Journal {
     const now = nowLondon();
     const copy = this.s.insert('entries', {
       page: toPage, kind: e.kind, text: e.text, status: 'open', priority: e.priority, time: e.time, at: now.iso,
-      day: 0, order: Date.now(), tags: e.tags, movedFrom: e.id, endTime: e.endTime, block: e.block, due: e.due, pillar: e.pillar,
+      day: 0, order: Date.now(), tags: e.tags, movedFrom: e.id, endTime: e.endTime, block: e.block, due: e.due, pillar: e.pillar, color: e.color,
     });
     if (e.kind === 'task' || e.kind === 'event') this.s.update('entries', id, { status, movedTo: toPage });
     else this.s.delete('entries', id);
@@ -248,12 +296,13 @@ export class Journal {
    * off everywhere, and it remembers its pillar). From another day or month it migrates the bullet journal way.
    * opts: { date, time, endTime, block, priority, due }
    */
-  plan(id, { date, time = null, endTime = null, block = null, priority, due } = {}) {
+  plan(id, { date, time = null, endTime = null, block = null, priority, due, color } = {}) {
     const e = this.s.get('entries', id);
     if (!e || !date) return null;
     const fields = { time: time || null, endTime: endTime || null, block: block || blockOf(time) || null };
     if (priority !== undefined) fields.priority = !!priority;
     if (due !== undefined) fields.due = due || null;
+    if (color !== undefined) fields.color = color || null;
     const target = dayPage(date);
     const from = pageInfo(e.page);
     let target_id = id;
