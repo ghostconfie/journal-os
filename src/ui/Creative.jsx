@@ -9,7 +9,7 @@ const TYPES = {
   sketch: { label: 'Drawing', icon: '✎' },
   image: { label: 'Photo', icon: '▣' },
   video: { label: 'Video', icon: '▶' },
-  mindmap: { label: 'Mind map', icon: '✳' },
+  mindmap: { label: 'Flow / mind map', icon: '✳' },
   sticky: { label: 'Sticky note', icon: '▭' },
 };
 
@@ -56,7 +56,7 @@ export function CreativeSpace({ journal, page }) {
         <button class="btn small" onClick={() => photoRef.current.click()}>▣ Photos</button>
         <button class="btn small" onClick={() => videoRef.current.click()}>▶ Video</button>
         <button class="btn small" onClick={addVideoLink}>▶ Video link</button>
-        <button class="btn small" onClick={() => add('mindmap', JSON.stringify({ nodes: [{ id: 'root', text: 'Main idea', parent: null }] }))}>✳ Mind map</button>
+        <button class="btn small" onClick={() => add('mindmap', JSON.stringify({ nodes: [{ id: 'root', text: 'Main idea', parent: null }] }))}>✳ Flow</button>
         <button class="btn small" onClick={() => add('sticky', '', { color: 'yellow' })}>▭ Sticky note</button>
         {busy && <span class="muted small">{busy}</span>}
       </div>
@@ -64,7 +64,7 @@ export function CreativeSpace({ journal, page }) {
       <input ref={videoRef} type="file" accept="video/*" hidden onChange={(e) => addVideo(e.currentTarget.files[0])} />
       {cards.length === 0 && (
         <div class="empty">
-          <p class="hand">A blank space for this day. Sketch, stick in photos and videos, map out ideas.</p>
+          <p class="muted small">Nothing here yet. Add a drawing, a flow, photos or a video.</p>
         </div>
       )}
       {cards.map((c, i) => <Card key={c.id} c={c} journal={journal} first={i === 0} last={i === cards.length - 1} />)}

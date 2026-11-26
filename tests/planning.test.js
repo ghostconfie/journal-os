@@ -113,6 +113,6 @@ describe('24-hour timeline', () => {
   it('picks a pencil colour from the line, then its pillar', () => {
     expect(pencilOf({ color: 'teal', pillar: 'physical' })).toBe('teal');
     expect(pencilOf({ pillar: 'physical' })).toBe('green');
-    expect(pencilOf({ kind: 'task' })).toBe('blue');
+    expect(pencilOf({ kind: 'task' })).toBe('emerald');
   });
 });

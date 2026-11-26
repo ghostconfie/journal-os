@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import { Ink, markFresh } from './Ink.jsx';
 import { Sheet, fmtMins, pageLabel, pageHref, shortDay, toast, dueLabel } from './common.jsx';
 import { getPrefs } from './prefs.js';
-import { KINDS, BLOCKS, PILLARS, dayPage, monthPage, colPage, pillarPage, pageInfo, nextMonths, pillarOf, blockOf, pencilOf } from '../lib/journal.js';
-import { PencilPicker } from './Timeline.jsx';
+import { KINDS, BLOCKS, PILLARS, QUADS, quadOf, dayPage, monthPage, colPage, pillarPage, pageInfo, nextMonths, pillarOf, blockOf, pencilOf } from '../lib/journal.js';
+import { PencilPicker } from './Color.jsx';
 import { addDays, monthKey, monthLabel, todayStr } from '../lib/util.js';
 
 function glyphFor(e) {
@@ -155,6 +155,7 @@ export function EntrySheet({ e: initial, journal, onClose, onFocus, onPlan }) {
   const [prio, setPrio] = useState(e.priority);
   const [pillar, setPillar] = useState(e.pillar || '');
   const [color, setColor] = useState(e.color || '');
+  const [quad, setQuad] = useState(quadOf(e));
   const [moveDate, setMoveDate] = useState(addDays(todayStr(), 1));
   const today = todayStr();
   const isTaskish = kind === 'task' || kind === 'event';
@@ -163,6 +164,7 @@ export function EntrySheet({ e: initial, journal, onClose, onFocus, onPlan }) {
   const save = () => {
     if (!text.trim()) return;
     const f = { text: text.trim(), kind, priority: prio, due: when.due || null, color: color || null };
+    if (kind === 'task') f.quad = quad;
     if (e.kind !== 'session') Object.assign(f, { time: when.time || null, endTime: when.endTime || null, block: when.block || null });
     if (p.type === 'pillar' && pillar && pillar !== p.key) Object.assign(f, { page: pillarPage(pillar), pillar });
     else f.pillar = pillar || null;
@@ -187,7 +189,13 @@ export function EntrySheet({ e: initial, journal, onClose, onFocus, onPlan }) {
             ))}
             <button class={`chip ${prio ? 'on' : ''}`} onClick={() => setPrio(!prio)}><b>*</b> Priority</button>
           </div>
-          <WhenFields v={when} set={setWhen} showBlock={p.type === 'day'} />
+          {kind === 'task' && (
+            <>
+              <div class="group-label">Eisenhower matrix</div>
+              <div class="seg wide">{[...QUADS].reverse().map((q) => <button class={quad === q.id ? 'on' : ''} onClick={() => setQuad(q.id)}>{q.label}</button>)}</div>
+            </>
+          )}
+          <WhenFields v={when} set={setWhen} showBlock={false} />
           {(isTaskish || when.time) && (
             <>
               <div class="group-label">Pencil colour for its time block</div>
@@ -207,9 +215,10 @@ export function EntrySheet({ e: initial, journal, onClose, onFocus, onPlan }) {
           <div class="group-label">Do</div>
           <div class="row wrap">
             {kind === 'task' && <button class="btn primary" onClick={() => done(() => journal.toggleDone(e.id))}>× Done</button>}
-            <button class="btn" onClick={() => { save(); onClose(); onPlan(journal.s.get('entries', e.id)); }}>Plan into a day…</button>
+            <button class="btn" onClick={() => { save(); onClose(); onPlan(journal.s.get('entries', e.id)); }}>◷ Schedule…</button>
+            {p.type === 'day' && kind === 'task' && <button class="btn" onClick={() => done(() => journal.unschedule(e.id), 'Back in the matrix')}>Unschedule</button>}
             {kind === 'task' && <button class="btn" onClick={() => done(() => onFocus(e))}>▶ Work on this now</button>}
-            {p.type === 'day' && (pillar || e.pillar) && <button class="btn" onClick={() => done(() => journal.unplan(e.id, pillar || e.pillar), 'Back in its pillar')}>Back to {pillarOf(pillar || e.pillar)?.label}</button>}
+
             {isTaskish && <button class="btn" onClick={() => done(() => journal.cancel(e.id), 'Struck out')}>Strike out</button>}
           </div>
         </>

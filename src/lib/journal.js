@@ -28,10 +28,13 @@ export function blockOf(time) {
 }
 /** Coloured pencils for filling in time blocks. A line uses its own colour, else its pillar's. */
 export const PENCILS = {
+  emerald: { label: 'Emerald', hex: '#10b981' },
+  green: { label: 'Green', hex: '#4c9a47' },
+  amber: { label: 'Amber', hex: '#f59e0b' },
+  violet: { label: 'Violet', hex: '#a78bfa' },
   red: { label: 'Red', hex: '#d64541' },
   orange: { label: 'Orange', hex: '#ee8a2c' },
   yellow: { label: 'Yellow', hex: '#efbf2a' },
-  green: { label: 'Green', hex: '#4c9a47' },
   teal: { label: 'Teal', hex: '#2a9a8c' },
   blue: { label: 'Blue', hex: '#3a70c8' },
   purple: { label: 'Purple', hex: '#8a5bc2' },
@@ -40,7 +43,21 @@ export const PENCILS = {
   grey: { label: 'Grey', hex: '#8b8b8b' },
 };
 const PILLAR_PENCIL = { physical: 'green', spiritual: 'purple', mental: 'teal', financial: 'yellow', relational: 'pink', todo: 'orange' };
-export const pencilOf = (e) => PENCILS[e?.color] ? e.color : PILLAR_PENCIL[e?.pillar] || (e?.kind === 'event' ? 'red' : 'blue');
+export const pencilOf = (e) => PENCILS[e?.color] ? e.color : PILLAR_PENCIL[e?.pillar] || (e?.kind === 'event' ? 'amber' : 'emerald');
+
+/**
+ * The Eisenhower matrix, laid out as four columns from least to most pressing. Every task sits in one; you move
+ * tasks rightwards as they become more important and urgent, and plan them into the calendar from there.
+ */
+export const QUADS = [
+  { id: 'later', label: 'Later', sub: 'Not urgent · Not important', hint: 'Park it or drop it' },
+  { id: 'delegate', label: 'Delegate', sub: 'Urgent · Not important', hint: 'Hand it off or batch it' },
+  { id: 'schedule', label: 'Schedule', sub: 'Important · Not urgent', hint: 'Give it a time in the calendar' },
+  { id: 'do', label: 'Do now', sub: 'Urgent · Important', hint: 'Today, first' },
+];
+const QUAD_RANK = { do: 0, schedule: 1, delegate: 2, later: 3 };
+/** Which column a task is in: the one it was put in, else priority tasks are "do now" and the rest "schedule". */
+export const quadOf = (e) => (QUAD_RANK[e?.quad] !== undefined ? e.quad : e?.priority ? 'do' : 'schedule');
 
 const toMin = (t) => { const [h, m] = String(t).split(':').map(Number); return h * 60 + (m || 0); };
 const fromMin = (m) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
@@ -415,6 +432,131 @@ export class Journal {
     this.s.commit();
   }
 
+  // ---- Eisenhower matrix and planning into the calendar ----
+
+  /** Add a task straight into a matrix column (it lives in its pillar's list until it's scheduled). */
+  addTask(text, { quad = 'schedule', pillar = null, kind = 'task' } = {}) {
+    const p = parseLine(text, { defaultKind: kind });
+    const pil = p.pillar || pillar || 'todo';
+    const e = this.write(pillarPage(pil), { ...p, kind: p.kind === 'note' ? 'task' : p.kind, pillar: pil }, {});
+    if (e) { this.s.update('entries', e.id, { quad }); this.s.commit(); }
+    return e && this.s.get('entries', e.id);
+  }
+
+  setQuad(id, quad) { this.update(id, { quad }); }
+
+  /** Every open task, by matrix column. `done` holds what was ticked off in the last week. */
+  matrix({ pillar = null, today = todayStr() } = {}) {
+    const out = { later: [], delegate: [], schedule: [], do: [], done: [] };
+    const weekAgo = addDays(today, -7);
+    for (const e of this.s.raw('entries')) {
+      if (e.kind !== 'task') continue;
+      if (pillar && (e.pillar || pillarOfPage(e.page)) !== pillar) continue;
+      if (e.status === 'open') out[quadOf(e)].push({ ...e });
+      else if (e.status === 'done' && (e.updatedAt || '').slice(0, 10) >= weekAgo) out.done.push({ ...e });
+    }
+    const rank = (a, b) => (b.priority - a.priority) || (a.due || '9').localeCompare(b.due || '9') || a.order - b.order;
+    for (const k of Object.keys(QUAD_RANK)) out[k].sort(rank);
+    out.done.sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || ''));
+    return out;
+  }
+
+  /** Open tasks that haven't been given a time yet, most pressing first (the planner's tray). */
+  unscheduled({ pillar = null } = {}) {
+    const out = [];
+    for (const e of this.s.raw('entries')) {
+      if (e.kind !== 'task' || e.status !== 'open' || e.time) continue;
+      const pt = pageInfo(e.page).type;
+      if (pt !== 'pillar' && pt !== 'day' && pt !== 'col') continue;
+      if (pillar && (e.pillar || pillarOfPage(e.page)) !== pillar) continue;
+      out.push({ ...e });
+    }
+    return out.sort((a, b) => QUAD_RANK[quadOf(a)] - QUAD_RANK[quadOf(b)] || (b.priority - a.priority) || (a.due || '9').localeCompare(b.due || '9') || a.order - b.order);
+  }
+
+  /** Put a task or event on the calendar at a day and time (or all day, with no time). Moves it, no copy. */
+  schedule(id, { date, time = null, endTime = null }) {
+    const e = this.s.get('entries', id);
+    if (!e || !date) return null;
+    const p = pageInfo(e.page);
+    this.s.update('entries', id, {
+      page: dayPage(date), time: time || null, endTime: time ? endTime || null : null, block: null,
+      pillar: e.pillar || (p.type === 'pillar' ? p.key : null),
+    });
+    this.s.commit();
+    return this.s.get('entries', id);
+  }
+
+  /** Take a task off the calendar and back into the matrix (its pillar's list). */
+  unschedule(id) {
+    const e = this.s.get('entries', id);
+    if (!e) return;
+    const pil = e.pillar || 'todo';
+    this.update(id, { page: pillarPage(pil), pillar: pil, time: null, endTime: null, block: null });
+  }
+
+  /** Make an event or task straight from the calendar. */
+  addToCalendar({ date, time = null, endTime = null, text, kind = 'event', color = null, pillar = null, quad = null, priority = false }) {
+    const p = parseLine(text, { defaultKind: kind });
+    const e = this.write(dayPage(date), {
+      ...p, kind: p.kind === 'note' ? kind : p.kind, time: p.time || time, endTime: p.endTime || endTime,
+      color, pillar: p.pillar || pillar, priority: p.priority || priority,
+    });
+    if (e && quad) { this.s.update('entries', e.id, { quad }); this.s.commit(); }
+    return e && this.s.get('entries', e.id);
+  }
+
+  /** Tasks and events on each day from `from` to `to` (inclusive), for the calendar. */
+  range(from, to) {
+    const out = new Map();
+    for (const e of this.s.raw('entries')) {
+      if (e.kind !== 'task' && e.kind !== 'event') continue;
+      if (e.status === 'migrated' || e.status === 'scheduled') continue;
+      const p = pageInfo(e.page);
+      if (p.type !== 'day' || p.key < from || p.key > to) continue;
+      if (!out.has(p.key)) out.set(p.key, []);
+      out.get(p.key).push({ ...e });
+    }
+    for (const list of out.values()) list.sort((a, b) => (a.time || '').localeCompare(b.time || '') || a.order - b.order);
+    return out;
+  }
+
+  // ---- journal (interstitial diary) ----
+
+  /** The journal entries written on a day: notes, ideas and focus sessions, oldest first. */
+  journalEntries(date) { return this.entries(dayPage(date)).filter((e) => e.kind === 'note' || e.kind === 'idea' || e.kind === 'session'); }
+
+  /** Write in the journal: the time it was written is recorded. */
+  journalWrite(date, text) {
+    const p = parseLine(text, { defaultKind: 'note' });
+    const kind = p.kind === 'idea' ? 'idea' : 'note';
+    return this.write(dayPage(date), { ...p, kind, text: p.kind === 'note' || p.kind === 'idea' ? p.text : String(text).trim(), time: null, endTime: null, due: null });
+  }
+
+  /** Days with anything in the journal, newest first, with a preview and photos for the list. */
+  journalDays(limit = 400) {
+    const days = new Map();
+    const get = (d) => { let x = days.get(d); if (!x) days.set(d, (x = { date: d, entries: [], photos: [], cards: 0 })); return x; };
+    const entryDay = new Map();
+    for (const e of this.s.raw('entries')) {
+      const p = pageInfo(e.page);
+      if (p.type !== 'day') continue;
+      entryDay.set(e.id, p.key);
+      if (e.kind === 'note' || e.kind === 'idea' || e.kind === 'session') get(p.key).entries.push(e);
+    }
+    for (const b of this.s.raw('blocks')) {
+      const p = pageInfo(b.page);
+      const d = p.type === 'day' ? p.key : p.type === 'entry' ? entryDay.get(p.key) : null;
+      if (!d) continue;
+      const x = get(d);
+      x.cards++;
+      if (b.type === 'image' && x.photos.length < 4) x.photos.push(b.data);
+    }
+    const list = [...days.values()].sort((a, b) => b.date.localeCompare(a.date)).slice(0, limit);
+    for (const d of list) d.entries.sort((a, b) => (a.at || '').localeCompare(b.at || ''));
+    return list;
+  }
+
   // ---- collections ----
   collections() { return this.s.all('collections').filter((c) => !c.archived).sort((a, b) => a.order - b.order || a.name.localeCompare(b.name)); }
   addCollection(name) {
@@ -545,4 +687,6 @@ export class Journal {
 }
 
 export const nextMonths = (from, n) => Array.from({ length: n }, (_, i) => shiftMonth(from, i));
+export const entryPage = (id) => `entry:${id}`;
+function pillarOfPage(page) { const p = pageInfo(page); return p.type === 'pillar' ? p.key : null; }
 export { addDays };

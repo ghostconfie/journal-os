@@ -3,6 +3,22 @@
 A bullet journal and an interstitial journal in one handwritten notebook. Works offline, syncs between
 devices through Firebase, and publishes itself to GitHub Pages on every push to `main`.
 
+## How it fits together
+1. **Matrix** (Eisenhower): every task from every pillar lives here, in four columns from least to most pressing:
+   Later (not urgent, not important) → Delegate (urgent, not important) → Schedule (important, not urgent) →
+   Do now (urgent and important). Drag a task between columns (or use its ‹ › arrows) as things change.
+   Filter by pillar. ◷ schedules a task.
+2. **Planner**: the calendar with a tray of every task that has no time yet, most pressing first. Drag a task onto a
+   time (or tap it, then tap a time) to schedule it.
+3. **Calendar**: day, 3-day, week, month and year views, like Google Calendar. Click or drag on empty time to add
+   an event or task, drag a block to move it (across days too), drag its bottom edge to change when it ends.
+   Untimed items and deadlines sit in the all-day row.
+4. **Journal**: one page per day. Write whenever something's going on; the time you wrote it is kept. Open an entry
+   to attach drawings, flows (mind maps), photos and videos; each day also has a canvas of its own.
+5. **Home**: today's schedule, Do-now tasks, progress, what's coming up, the journal and pillar balance.
+
+Dark mode by default, a white mode, and six accent colours (Settings).
+
 ## Writing
 Type on the line at the bottom of a page and press Enter. It's written onto the page in handwriting,
 with the time in the margin.

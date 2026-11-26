@@ -2,7 +2,7 @@ import { useRef, useState } from 'preact/hooks';
 import { Paper } from './Pages.jsx';
 import { Ink } from './Ink.jsx';
 import { toast } from './common.jsx';
-import { FONTS, INKS, PAPERS, THEMES, getPrefs, setPrefs } from './prefs.js';
+import { ACCENTS, FONTS, THEMES, getPrefs, setPrefs } from './prefs.js';
 import { dayPage } from '../lib/journal.js';
 import { todayStr } from '../lib/util.js';
 
@@ -59,35 +59,34 @@ export function SettingsView({ journal, store, sync }) {
   };
 
   return (
-    <Paper title="Settings" sub="How your notebook looks, and keeping it safe">
-      <h2 class="sec">Handwriting</h2>
+    <Paper title="Settings" sub="How the app looks, and keeping your data safe">
+      <h2 class="sec">Appearance</h2>
+      <div class="seg wide">
+        {Object.entries(THEMES).map(([k, l]) => <button class={p.theme === k ? 'on' : ''} onClick={() => set({ theme: k })}>{l}</button>)}
+      </div>
+      <div class="field-l">Accent colour</div>
+      <div class="accents">
+        {Object.entries(ACCENTS).map(([k, a]) => (
+          <button class={`accent-sw ${p.accent === k ? 'on' : ''}`} onClick={() => set({ accent: k })} style={`--c:${a.hex};--d:${a.deep}`} aria-label={a.label} title={a.label}><span />{a.label}</button>
+        ))}
+      </div>
+      <div class="field-l">Your name (for the greeting)</div>
+      <input class="text-in" value={p.name} placeholder="e.g. G" onInput={(e) => set({ name: e.currentTarget.value })} />
+      <div class="field-l">Week starts on</div>
+      <div class="seg">
+        {[[1, 'Monday'], [0, 'Sunday']].map(([k, l]) => <button class={p.weekStart === k ? 'on' : ''} onClick={() => set({ weekStart: k })}>{l}</button>)}
+      </div>
+
+      <h2 class="sec">Journal writing</h2>
       <div class="font-grid">
         {Object.entries(FONTS).map(([k, f]) => (
-          <button class={`font-card ${p.font === k ? 'on' : ''}`} onClick={() => set({ font: k })} style={`--hand:${f.family};--hand-scale:${f.size}`}>
-            <span class="fc-sample"><Ink text="Called the supplier, sorted." id={`sample-${k}`} /></span>
+          <button class={`font-card ${p.font === k ? 'on' : ''}`} onClick={() => set({ font: k, wobble: k !== 'clean' })} style={`--hand:${f.family};--hand-scale:${f.size}`}>
+            <span class="fc-sample">Called the supplier, sorted.</span>
             <span class="fc-name">{f.label}</span>
           </button>
         ))}
       </div>
-      <h2 class="sec">Ink</h2>
-      <div class="row wrap">
-        {Object.entries(INKS).map(([k, c]) => (
-          <button class={`swatch ${p.ink === k ? 'on' : ''}`} onClick={() => set({ ink: k })} aria-label={c.label} title={c.label} style={`--sw:${document.documentElement.dataset.theme === 'night' ? c.night : c.day}`} />
-        ))}
-      </div>
-      <h2 class="sec">Paper and light</h2>
-      <div class="row wrap">
-        {Object.entries(PAPERS).map(([k, l]) => <button class={`chip ${p.paper === k ? 'on' : ''}`} onClick={() => set({ paper: k })}>{l}</button>)}
-      </div>
-      <div class="row wrap">
-        {Object.entries(THEMES).map(([k, l]) => <button class={`chip ${p.theme === k ? 'on' : ''}`} onClick={() => set({ theme: k })}>{l}</button>)}
-      </div>
-      <label class="check"><input type="checkbox" checked={p.animate} onChange={(e) => set({ animate: e.currentTarget.checked })} /> Animate new lines as if they're being written</label>
-      <label class="check"><input type="checkbox" checked={p.wobble} onChange={(e) => set({ wobble: e.currentTarget.checked })} /> Natural wobble in letters (looks less like a font)</label>
-      <h2 class="sec">A plain line, with no symbol in front, is…</h2>
-      <div class="row wrap">
-        {[['note', '– a note (interstitial log)'], ['task', '• a task']].map(([k, l]) => <button class={`chip ${p.defaultKind === k ? 'on' : ''}`} onClick={() => set({ defaultKind: k })}>{l}</button>)}
-      </div>
+      <label class="check"><input type="checkbox" checked={p.animate} onChange={(e) => set({ animate: e.currentTarget.checked })} /> Animate new entries as they're written</label>
 
       <h2 class="sec">Excel</h2>
       <p class="muted small">The backup is one Excel file with everything in it. Load it into this app on any device, or a fresh copy of the app, and the whole notebook comes back exactly. You can also edit it in Excel and load it back.</p>

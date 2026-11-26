@@ -4,7 +4,7 @@ import { EntryLine, PenLine, WhenFields } from './Entry.jsx';
 import { Paper } from './Pages.jsx';
 import { Sheet, shortDay, toast, useTick } from './common.jsx';
 import { markFresh } from './Ink.jsx';
-import { DayTimeline, PencilPicker } from './Timeline.jsx';
+import { PencilPicker } from './Color.jsx';
 import { PILLARS, pillarPage, pillarOf, blockOf, pencilOf } from '../lib/journal.js';
 import { addDays, nowLondon, todayStr } from '../lib/util.js';
 
@@ -31,7 +31,7 @@ export function PlanSheet({ e, journal, onClose, defaultDate }) {
     onClose();
   };
   return (
-    <Sheet title="Plan it into a day" onClose={onClose}>
+    <Sheet title="Schedule it" onClose={onClose}>
       <p class="hand big-line">{e.text}</p>
       <div class="group-label">Day</div>
       <div class="row wrap tight-row">
@@ -40,7 +40,7 @@ export function PlanSheet({ e, journal, onClose, defaultDate }) {
         ))}
         <input type="date" value={date} onInput={(ev) => ev.currentTarget.value && setDate(ev.currentTarget.value)} aria-label="Pick a day" />
       </div>
-      <WhenFields v={when} set={set} />
+      <WhenFields v={when} set={set} showBlock={false} />
       <div class="group-label">Pencil colour for its time block</div>
       <PencilPicker value={color} onChange={setColor} />
       <label class="check"><input type="checkbox" checked={prio} onChange={(ev) => setPrio(ev.currentTarget.checked)} /> * A priority for that day</label>
@@ -70,41 +70,6 @@ export function PullSheet({ journal, date, onPick, onClose }) {
         </div>
       ))}
     </Sheet>
-  );
-}
-
-/** The day's plan: priorities and deadlines at the top, then the full 24-hour schedule with time blocks. */
-export function DayPlan({ journal, date, onOpen, onPlan, onPull, onNew }) {
-  const plan = journal.dayPlan(date);
-  const today = todayStr();
-  const due = date >= today ? journal.dueBy(date) : [];
-  const untimed = plan.blocks.flatMap((b) => b.items.filter((e) => !e.time)).concat(plan.loose).filter((e) => !e.priority);
-  const line = (e) => <EntryLine key={e.id} e={e} journal={journal} onOpen={onOpen} onPlan={onPlan} />;
-  return (
-    <div class="dayplan">
-      <div class="plan-top">
-        <div class="row wrap plan-actions">
-          <button class="btn small" onClick={() => onNew(nowLondon().time.slice(0, 2) + ':00')}>▭ New time block</button>
-          <button class="btn small" onClick={onPull}>↓ Pull from pillars</button>
-        </div>
-        <h2 class="sec">* Priorities for the day</h2>
-        {plan.priorities.length ? <ul class="lines">{plan.priorities.map(line)}</ul> : <p class="muted small">Star something (*) to make it a priority for the day.</p>}
-      </div>
-      <div class="plan-tl">
-        <h2 class="sec">Schedule <span class="tb-time">tap an empty time to block it out</span></h2>
-        <DayTimeline journal={journal} date={date} onOpen={onOpen} onNew={onNew} />
-      </div>
-      <div class="plan-rest">
-        {due.length > 0 && (
-          <>
-            <h2 class="sec">Deadlines</h2>
-            <ul class="lines">{due.map((e) => <EntryLine key={e.id} e={e} journal={journal} onOpen={onOpen} onPlan={onPlan} showPage />)}</ul>
-          </>
-        )}
-        <h2 class="sec">No set time yet</h2>
-        {untimed.length ? <ul class="lines">{untimed.map(line)}</ul> : <p class="muted small">Everything on today has a time.</p>}
-      </div>
-    </div>
   );
 }
 
