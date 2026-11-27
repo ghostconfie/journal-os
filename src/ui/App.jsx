@@ -3,11 +3,10 @@ import { MonthView, FutureView, MigrateView, CollectionView, IndexView, SearchVi
 import { SettingsView } from './Settings.jsx';
 import { EntrySheet } from './Entry.jsx';
 import { PillarsView, PlanSheet } from './Plan.jsx';
-import { CalendarView } from './Calendar.jsx';
 import { MatrixView } from './Matrix.jsx';
 import { JournalHome, JournalDay } from './Journal.jsx';
 import { Dashboard } from './Dashboard.jsx';
-import { DayPlanner } from './DayPlanner.jsx';
+import { CalendarBoard } from './Board.jsx';
 import { FocusBar, SwitchSheet, StartSheet } from './Focus.jsx';
 import { Toasts, useVersion, useTick, toast } from './common.jsx';
 import { onPrefs } from './prefs.js';
@@ -35,7 +34,7 @@ function parseHash() {
       if (['journal', 'create'].includes(b)) return { name: 'jday', date: isDate(a) ? a : today };
       return { name: 'cal', view: 'day', date: isDate(a) ? a : today };
     case 'journal': return isDate(a) ? { name: 'jday', date: a } : { name: 'journal' };
-    case 'matrix': return { name: 'matrix' };
+    case 'matrix': return { name: 'matrix', pillar: a };
     case 'pillars': return { name, focus: decodeURIComponent(a) };
     case 'month': return { name, m: /^\d{4}-\d{2}$/.test(a) ? a : monthKey(today) };
     case 'future': case 'migrate': case 'index': case 'settings': case 'more': return { name };
@@ -104,11 +103,8 @@ export function App({ journal, store, sync: initialSync, onStatus }) {
 
   let view;
   switch (route.name) {
-    case 'cal': view = <CalendarView journal={journal} view={route.view} date={route.date} onOpen={setOpen} />; break;
-    case 'plan': view = route.view === 'day'
-      ? <DayPlanner key={route.date} journal={journal} date={route.date} onOpen={setOpen} />
-      : <CalendarView journal={journal} view={route.view || (window.innerWidth < 760 ? 'month' : 'week')} date={route.date} tray onOpen={setOpen} />; break;
-    case 'matrix': view = <MatrixView journal={journal} onOpen={setOpen} onPlan={onPlan} />; break;
+    case 'cal': case 'plan': view = <CalendarBoard journal={journal} view={['year', 'month', 'week', 'day'].includes(route.view) ? route.view : null} date={route.date} onOpen={setOpen} />; break;
+    case 'matrix': view = <MatrixView journal={journal} onOpen={setOpen} pillar={route.pillar} />; break;
     case 'journal': view = <JournalHome journal={journal} />; break;
     case 'jday': view = <JournalDay key={route.date} journal={journal} date={route.date} />; break;
     case 'pillars': view = <PillarsView journal={journal} focus={route.focus} onOpen={setOpen} onPlan={onPlan} />; break;
@@ -129,7 +125,6 @@ export function App({ journal, store, sync: initialSync, onStatus }) {
   const nav = [
     ['home', '#/', 'Home', I.home],
     ['matrix', '#/matrix', 'Matrix', I.matrix, doNow],
-    ['plan', '#/plan', 'Planner', I.plan],
     ['cal', '#/cal', 'Calendar', I.cal],
     ['journal', `#/journal/${today}`, 'Journal', I.journal],
   ];
@@ -160,7 +155,7 @@ export function App({ journal, store, sync: initialSync, onStatus }) {
       </main>
 
       <nav class="tabs" aria-label="Main">
-        {[...nav.filter(([k]) => k !== 'plan'), ['more', '#/more', 'More', I.more]].map(([k, h, l, d, badge]) => (
+        {[...nav, ['more', '#/more', 'More', I.more]].map(([k, h, l, d, badge]) => (
           <a class={sec === k || (k === 'cal' && sec === 'plan') || (k === 'more' && sec === 'set') ? 'on' : ''} href={h}><Icon d={d} /><span>{l}</span>{badge ? <i class="badge">{badge}</i> : null}</a>
         ))}
       </nav>

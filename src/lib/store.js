@@ -12,7 +12,7 @@ export const SCHEMA = {
     // time = start time, endTime = finish time; block = time-block section of the day; due = deadline (YYYY-MM-DD)
     // pillar = life area it belongs to (physical, spiritual, mental, financial, relational, todo)
     // color = coloured-pencil shade its time block is filled in with
-    endTime: 'TEXT', block: 'TEXT', due: 'TEXT', pillar: 'TEXT', color: 'TEXT', quad: 'TEXT', est: 'INT', createdAt: 'TEXT', updatedAt: 'TEXT',
+    endTime: 'TEXT', block: 'TEXT', due: 'TEXT', pillar: 'TEXT', color: 'TEXT', quad: 'TEXT', est: 'INT', src: 'TEXT', createdAt: 'TEXT', updatedAt: 'TEXT',
   },
   collections: { id: 'TEXT', name: 'TEXT', order: 'INT', archived: 'BOOL', createdAt: 'TEXT', updatedAt: 'TEXT' },
   // creative space cards on a page: sketch (strokes JSON), image (compressed data URL), video (device file or link),

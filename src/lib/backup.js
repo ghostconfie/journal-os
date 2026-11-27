@@ -136,7 +136,7 @@ export function readGenericTasks(wb, fallbackPage) {
 
 export async function readFile(file) {
   const buf = await file.arrayBuffer();
-  const wb = XLSX.read(buf, { type: 'array', cellDates: true });
+  const wb = XLSX.read(buf, { type: 'array', cellDates: true, cellStyles: true });
   return { wb, backup: isBackup(wb) };
 }
 

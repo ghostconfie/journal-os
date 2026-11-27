@@ -58,14 +58,14 @@ export function Dashboard({ journal, onOpen }) {
         </div>
         <div class="dash-actions">
           <a class="btn" href={`#/journal/${today}`}>✎ Journal</a>
-          <a class="btn primary" href={`#/plan/day/${today}`}>Plan today</a>
+          <a class="btn primary" href={`#/cal/day/${today}`}>Today's pillars</a>
         </div>
       </header>
 
       <div class="dash-grid">
         <div class="card w-sched">
           <div class="w-head"><h2>Today's schedule</h2><a class="link" href={`#/cal/day/${today}`}>Calendar →</a></div>
-          {timed.length === 0 && untimed.length === 0 && <p class="muted small">Nothing planned yet. <a class="link" href="#/plan">Pull tasks in from the matrix</a>.</p>}
+          {timed.length === 0 && untimed.length === 0 && <p class="muted small">Nothing planned yet. <a class="link" href="#/matrix">Copy tasks in from the matrix</a>.</p>}
           <div class="sched">
             {timed.map((e) => {
               const past = (e.endTime || e.time) < now.time;

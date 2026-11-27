@@ -3,6 +3,15 @@
 A bullet journal and an interstitial journal in one handwritten notebook. Works offline, syncs between
 devices through Firebase, and publishes itself to GitHub Pages on every push to `main`.
 
+## How the planner works (v3 — Alchemy of Self system)
+
+1. **Matrix** — each pillar (Tasks to do, Spiritual, Physical, Mental, Financial, Relational) has its own Eisenhower matrix with five columns: Important Urgent, Important Not Urgent, Not Important But Urgent, Not Important or Urgent, Standby. Every task lives here first.
+2. **Copy → Paste** — press *Copy* on a task, then *Paste* on any day (as many days as you like). It lands in that day's pillar section. On desktop you can also drag from the Matrix tray straight onto a day or a pillar section.
+3. **Green / red** — tap the box on a day task: once = done (green), twice = couldn't do it (red), three times = back to open.
+4. **Move it** — tap a day task for *Move to day*, *Back to matrix*, a time block, estimate or pillar.
+5. **Calendar** — Year (bird's-eye Q1–Q4, days coloured by how they went), Month and Week (days filled with pillar sections like the spreadsheet), Day (pillar list + 24h timeline; drag tasks onto times or *Fill by pillar*).
+6. **Import** — Settings → *Import a spreadsheet* reads an Alchemy of Self workbook: pillar sheets go into the matrix, month sheets onto their days with durations and red/green kept. Importing twice doesn't duplicate.
+
 ## How it fits together
 1. **Matrix** (Eisenhower): every task from every pillar lives here, in four columns from least to most pressing:
    Later (not urgent, not important) → Delegate (urgent, not important) → Schedule (important, not urgent) →

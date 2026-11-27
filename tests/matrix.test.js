@@ -29,9 +29,11 @@ describe('Eisenhower matrix, planner and calendar', () => {
     const b = j.addTask('urgent thing', { quad: 'do' });
     const c = j.addTask('plan thing', { quad: 'schedule' });
     expect(j.unscheduled().map((e) => e.text)).toEqual(['urgent thing', 'plan thing', 'later thing']);
+    j.addTask('waiting thing', { quad: 'standby' });
+    expect(j.unscheduled().map((e) => e.text).at(-1)).toBe('waiting thing');
     const r = j.schedule(b.id, { date: '2026-11-27', time: '09:00', endTime: '10:30' });
     expect(r).toMatchObject({ id: b.id, page: 'day:2026-11-27', time: '09:00', endTime: '10:30', quad: 'do', pillar: 'todo' });
-    expect(j.unscheduled().map((e) => e.text)).toEqual(['plan thing', 'later thing']);
+    expect(j.unscheduled().map((e) => e.text)).toEqual(['plan thing', 'later thing', 'waiting thing']);
     expect(j.range('2026-11-26', '2026-12-02').get('2026-11-27').map((e) => e.text)).toEqual(['urgent thing']);
     j.schedule(b.id, { date: '2026-11-28', time: '14:00', endTime: '15:00' });
     expect(s.get('entries', b.id)).toMatchObject({ page: 'day:2026-11-28', time: '14:00' });
@@ -83,9 +85,38 @@ describe('planning a day by pillar', () => {
     const n = j.autoSchedule('2026-11-28', { from: '09:00', to: '22:00', dur: 60 });
     expect(n).toBe(4);
     const t = (x) => { const e = s.get('entries', x.id); return `${e.time}-${e.endTime}`; };
-    // physical 09-10, meeting 10-11, spiritual (30m) 11-11:30, financial 11:30-12:30, relational 12:30-13:30
-    expect([t(b), t(c), t(a), t(d)]).toEqual(['09:00-10:00', '11:00-11:30', '11:30-12:30', '12:30-13:30']);
+    // day order: financial 09-10, meeting 10-11, relational 11-12, physical 12-13, spiritual (30m) 13-13:30
+    expect([t(a), t(d), t(b), t(c)]).toEqual(['09:00-10:00', '11:00-12:00', '12:00-13:00', '13:00-13:30']);
     j.toPillarOnDay(a.id, '2026-11-28', 'financial');
     expect(s.get('entries', a.id).time).toBe(null);
+  });
+});
+
+describe('copy and paste into calendar days', () => {
+  let s, j;
+  beforeEach(() => { setNow('2026-11-27T08:00:00Z'); s = new Store(); j = new Journal(s); });
+  it('copies a matrix task onto several days, marks green/red, moves and sends back', () => {
+    const t = j.addTask('Strength training +physical', { quad: 'do' });
+    j.update(t.id, { est: 45 });
+    const a = j.copyToDay(t.id, '2026-11-28');
+    const b = j.copyToDay(t.id, '2026-11-29');
+    expect(a).toMatchObject({ page: 'day:2026-11-28', pillar: 'physical', src: t.id, est: 45, status: 'open', text: 'Strength training' });
+    expect(s.get('entries', t.id).page).toBe('pillar:physical'); // still in the matrix
+    expect(j.matrix().do.map((e) => e.text)).toEqual(['Strength training']); // copies don't double up in the matrix
+    expect(j.copiesOf(t.id).map((e) => e.date)).toEqual(['2026-11-28', '2026-11-29']);
+    // paste a copy of a copy: still points at the original
+    expect(j.copyToDay(a.id, '2026-11-30').src).toBe(t.id);
+    j.setStatus(a.id, 'done'); j.setStatus(b.id, 'missed');
+    expect(j.dayScore(j.entries(dayPage('2026-11-28')))).toMatchObject({ done: 1, total: 1 });
+    expect(j.dayScore(j.entries(dayPage('2026-11-29')))).toMatchObject({ missed: 1 });
+    j.moveToDay(b.id, '2026-12-01');
+    expect(s.get('entries', b.id)).toMatchObject({ page: 'day:2026-12-01', status: 'open' });
+    j.backToMatrix(b.id);
+    expect(s.get('entries', b.id)).toBe(null); // the copy goes, the original stays
+    const d = j.addToDay('2026-11-28', 'financial', 'pay VAT');
+    expect(d).toMatchObject({ pillar: 'financial', kind: 'task' });
+    expect(j.dayPillars('2026-11-28').financial.map((e) => e.text)).toEqual(['pay VAT']);
+    j.backToMatrix(d.id);
+    expect(s.get('entries', d.id)).toMatchObject({ page: 'pillar:financial', quad: 'schedule', src: null });
   });
 });

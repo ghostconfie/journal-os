@@ -3,13 +3,15 @@ import { addDays, monthKey, nowIso, nowLondon, shiftMonth, todayStr, daysInMonth
 
 /** The six pillars of the task manager. Things live here until you plan them into a day. */
 export const PILLARS = [
-  { id: 'physical', label: 'Physical', hint: 'Training, food, sleep, health' },
+  { id: 'todo', label: 'Tasks to do', hint: 'Everything else that needs doing' },
   { id: 'spiritual', label: 'Spiritual', hint: 'Prayer, scripture, church, faith' },
+  { id: 'physical', label: 'Physical', hint: 'Training, food, sleep, health' },
   { id: 'mental', label: 'Mental', hint: 'Learning, reading, rest, mindset' },
   { id: 'financial', label: 'Financial', hint: 'Money, business, bills, income' },
   { id: 'relational', label: 'Relational', hint: 'Family, friends, partner, team' },
-  { id: 'todo', label: 'Tasks to do', hint: 'Everything else that needs doing' },
 ];
+/** The order pillars are listed inside a calendar day. */
+export const DAY_ORDER = ['todo', 'financial', 'relational', 'physical', 'mental', 'spiritual'];
 const PILLAR_ALIASES = { phys: 'physical', body: 'physical', health: 'physical', spirit: 'spiritual', faith: 'spiritual', mind: 'mental', fin: 'financial', money: 'financial', rel: 'relational', people: 'relational', tasks: 'todo', task: 'todo', todo: 'todo' };
 export const pillarOf = (id) => PILLARS.find((p) => p.id === id) || null;
 
@@ -50,12 +52,13 @@ export const pencilOf = (e) => PENCILS[e?.color] ? e.color : PILLAR_PENCIL[e?.pi
  * tasks rightwards as they become more important and urgent, and plan them into the calendar from there.
  */
 export const QUADS = [
-  { id: 'later', label: 'Later', sub: 'Not urgent · Not important', hint: 'Park it or drop it' },
-  { id: 'delegate', label: 'Delegate', sub: 'Urgent · Not important', hint: 'Hand it off or batch it' },
-  { id: 'schedule', label: 'Schedule', sub: 'Important · Not urgent', hint: 'Give it a time in the calendar' },
-  { id: 'do', label: 'Do now', sub: 'Urgent · Important', hint: 'Today, first' },
+  { id: 'do', label: 'Important Urgent', short: 'Do now', hint: 'Do it first' },
+  { id: 'schedule', label: 'Important Not Urgent', short: 'Schedule', hint: 'Put it on a day' },
+  { id: 'delegate', label: 'Not Important But Urgent', short: 'Delegate', hint: 'Hand it off or batch it' },
+  { id: 'later', label: 'Not Important or Urgent', short: 'Later', hint: 'Park it or drop it' },
+  { id: 'standby', label: 'Standby', short: 'Standby', hint: 'Waiting on something' },
 ];
-const QUAD_RANK = { do: 0, schedule: 1, delegate: 2, later: 3 };
+const QUAD_RANK = { do: 0, schedule: 1, delegate: 2, later: 3, standby: 4 };
 /** Which column a task is in: the one it was put in, else priority tasks are "do now" and the rest "schedule". */
 export const quadOf = (e) => (QUAD_RANK[e?.quad] !== undefined ? e.quad : e?.priority ? 'do' : 'schedule');
 
@@ -447,10 +450,11 @@ export class Journal {
 
   /** Every open task, by matrix column. `done` holds what was ticked off in the last week. */
   matrix({ pillar = null, today = todayStr() } = {}) {
-    const out = { later: [], delegate: [], schedule: [], do: [], done: [] };
+    const out = { later: [], delegate: [], schedule: [], do: [], standby: [], done: [] };
     const weekAgo = addDays(today, -7);
     for (const e of this.s.raw('entries')) {
       if (e.kind !== 'task') continue;
+      if (pageInfo(e.page).type === 'day') continue; // tasks already on calendar days live there, not in the matrix
       if (pillar && (e.pillar || pillarOfPage(e.page)) !== pillar) continue;
       if (e.status === 'open') out[quadOf(e)].push({ ...e });
       else if (e.status === 'done' && (e.updatedAt || '').slice(0, 10) >= weekAgo) out.done.push({ ...e });
@@ -522,6 +526,89 @@ export class Journal {
     return out;
   }
 
+  // ---- the matrix ↔ calendar days (copy, paste, move, done/missed) ----
+
+  /** Copy a task onto a day, into its pillar. The original stays where it was (paste it on as many days as you like). */
+  copyToDay(id, date, { pillar } = {}) {
+    const e = this.s.get('entries', id);
+    if (!e || !date) return null;
+    const p = pageInfo(e.page);
+    const src = p.type === 'day' && e.src ? e.src : id;
+    const c = this.s.insert('entries', {
+      page: dayPage(date), kind: e.kind === 'event' ? 'event' : 'task', text: e.text, status: 'open', priority: e.priority,
+      time: null, endTime: null, at: nowLondon().iso, day: 0, order: Date.now(), tags: e.tags || [],
+      pillar: pillar || e.pillar || (p.type === 'pillar' ? p.key : 'todo'), quad: e.quad || null, est: e.est || 0,
+      color: e.color || null, src,
+    });
+    this.s.commit();
+    return c;
+  }
+
+  /** Where a matrix task has been pasted: its copies on calendar days, by date. */
+  copiesOf(id) {
+    const out = [];
+    for (const e of this.s.raw('entries')) if (e.src === id && pageInfo(e.page).type === 'day') out.push({ ...e, date: e.page.slice(4) });
+    return out.sort((a, b) => a.date.localeCompare(b.date));
+  }
+
+  /** Done (green), missed (red) or not yet. */
+  setStatus(id, status) { this.update(id, { status }); }
+
+  /** Move a task on the calendar to another day (keeps its pillar; time comes off unless you keep it). */
+  moveToDay(id, date, { keepTime = false } = {}) {
+    const e = this.s.get('entries', id);
+    if (!e) return null;
+    this.s.update('entries', id, { page: dayPage(date), ...(keepTime ? {} : { time: null, endTime: null }), block: null, status: e.status === 'missed' ? 'open' : e.status, order: Date.now() });
+    this.s.commit();
+    return this.s.get('entries', id);
+  }
+
+  /**
+   * Take a task off a calendar day and back into the matrix. A pasted copy is simply removed (its original is
+   * still in the matrix); a task that only lived on the day goes into its pillar's matrix.
+   */
+  backToMatrix(id) {
+    const e = this.s.get('entries', id);
+    if (!e) return null;
+    const orig = e.src ? this.s.get('entries', e.src) : null;
+    if (orig && pageInfo(orig.page).type !== 'day') {
+      if (orig.status !== 'open') this.s.update('entries', orig.id, { status: 'open' });
+      this.s.delete('entries', id);
+      this.s.commit();
+      return orig;
+    }
+    const pil = e.pillar || 'todo';
+    this.s.update('entries', id, { page: pillarPage(pil), pillar: pil, time: null, endTime: null, block: null, status: 'open', src: null, quad: e.quad || 'schedule' });
+    this.s.commit();
+    return this.s.get('entries', id);
+  }
+
+  /** Add a task straight onto a day, in a pillar. */
+  addToDay(date, pillar, text) {
+    const p = parseLine(text, { defaultKind: 'task' });
+    if (!p.text) return null;
+    return this.write(dayPage(date), { ...p, kind: p.kind === 'event' ? 'event' : 'task', pillar: p.pillar || pillar || 'todo' });
+  }
+
+  /** A calendar day, pillar by pillar: every task and event on it (timed or not), in the day's pillar order. */
+  dayPillars(date) {
+    const lanes = Object.fromEntries(DAY_ORDER.map((p) => [p, []]));
+    for (const e of this.entries(dayPage(date))) {
+      if (e.kind !== 'task' && e.kind !== 'event') continue;
+      if (e.status === 'migrated' || e.status === 'scheduled') continue;
+      lanes[pillarOf(e.pillar) ? e.pillar : 'todo'].push(e);
+    }
+    for (const k of DAY_ORDER) lanes[k].sort((a, b) => (a.time ? 0 : 1) - (b.time ? 0 : 1) || (a.time || '').localeCompare(b.time || '') || a.order - b.order);
+    return lanes;
+  }
+
+  /** How a day went: done, missed and still open (for green/red in the calendar). */
+  dayScore(list) {
+    let done = 0, missed = 0, open = 0;
+    for (const e of list) { if (e.kind !== 'task' && e.kind !== 'event') continue; if (e.status === 'done') done++; else if (e.status === 'missed' || e.status === 'cancelled') missed++; else if (e.status === 'open') open++; }
+    return { done, missed, open, total: done + missed + open };
+  }
+
   // ---- planning a day by pillar ----
 
   /**
@@ -529,11 +616,11 @@ export class Journal {
    * (anything without a pillar goes under "Tasks to do"), plus what's already timed.
    */
   dayBoard(date) {
-    const lanes = Object.fromEntries(PILLARS.map((p) => [p.id, []]));
+    const lanes = Object.fromEntries(DAY_ORDER.map((p) => [p, []]));
     const timed = [];
     for (const e of this.entries(dayPage(date))) {
       if (e.kind !== 'task' && e.kind !== 'event') continue;
-      if (e.status === 'migrated' || e.status === 'scheduled' || e.status === 'cancelled') continue;
+      if (e.status === 'migrated' || e.status === 'scheduled' || e.status === 'cancelled' || e.status === 'missed') continue;
       if (e.time) { timed.push(e); continue; }
       lanes[pillarOf(e.pillar) ? e.pillar : 'todo'].push(e);
     }
@@ -557,7 +644,7 @@ export class Journal {
   autoSchedule(date, { from = '09:00', to = '22:00', dur = 60, gap = 0 } = {}) {
     const { lanes, timed } = this.dayBoard(date);
     const busy = timed.map((e) => { const s = toMin(e.time); return [s, e.endTime ? Math.max(s + 15, toMin(e.endTime)) : s + 30]; });
-    const queue = PILLARS.flatMap((p) => lanes[p.id]).filter((e) => e.status === 'open');
+    const queue = DAY_ORDER.flatMap((p) => lanes[p]).filter((e) => e.status === 'open');
     const end = toMin(to);
     let t = toMin(from), placed = 0;
     for (const e of queue) {

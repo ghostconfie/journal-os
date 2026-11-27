@@ -5,7 +5,6 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
 import { Sheet, toast, useTick, shortDay } from './common.jsx';
 import { startDrag } from './drag.js';
 import { ColorDots } from './Color.jsx';
-import { Steps } from './Steps.jsx';
 import { getPrefs } from './prefs.js';
 import { PENCILS, PILLARS, QUADS, KINDS, layoutDay, pencilOf, quadOf, pillarOf, toMin, fromMin } from '../lib/journal.js';
 import { addDays, daysInMonth, monthKey, nowLondon, shiftMonth, todayStr } from '../lib/util.js';
@@ -85,8 +84,6 @@ export function CalendarView({ journal, view: v0, date, tray = false, onOpen }) 
   }
   return (
     <div class={`cal-screen ${showTray ? 'with-tray' : ''}`}>
-      {tray && <Steps at={2} date={date} />}
-      {tray && <p class="muted small step-hint">Drag tasks from the matrix onto a day (or tap one, then tap a day). Then open a day, by tapping its date, to sort it by pillar and give tasks a time.</p>}
       <div class="cal-bar">
         <div class="cal-bar-l">
           <button class="btn" onClick={() => go(today)}>Today</button>
@@ -268,7 +265,7 @@ export function TimeGrid({ journal, days, onOpen, onSlot, onDay, height }) {
 
 function Block({ e, journal, onOpen, s, end, top, height, style, dragging, onDown }) {
   const hex = hexOf(e);
-  const done = e.status === 'done', struck = e.status === 'cancelled';
+  const done = e.status === 'done', struck = e.status === 'cancelled' || e.status === 'missed';
   const short = height < 40;
   const pillar = e.pillar ? pillarOf(e.pillar) : null;
   return (

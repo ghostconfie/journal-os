@@ -40,6 +40,15 @@ export function SettingsView({ journal, store, sync }) {
     try {
       const { readFile, readBackup, readGenericTasks } = await import('../lib/backup.js');
       const { wb, backup: isBk } = await readFile(file);
+      const alc = await import('../lib/alchemy.js');
+      if (alc.isAlchemy(wb)) {
+        const data = alc.readAlchemy(wb);
+        if (!confirm(`This is an Alchemy of Self planner. Add its ${data.matrix.length} matrix task${data.matrix.length === 1 ? '' : 's'} to your pillars? (Anything already there is skipped.)`)) return;
+        const withDays = data.days.length > 0 && confirm(`It also has ${data.days.length} tasks on calendar days${data.years.length ? ` (${data.years.join(', ')})` : ''}, with red and green kept as couldn't-do and done. Add those to the calendar too?`);
+        const n = alc.applyAlchemy(journal, data, { withDays });
+        toast(`Imported ${n.matrix} matrix task${n.matrix === 1 ? '' : 's'}${withDays ? ` and ${n.days} day task${n.days === 1 ? '' : 's'}` : ''}`);
+        return;
+      }
       if (isBk) {
         // merge a backup in without wiping anything: only lines and collections this notebook doesn't have yet
         const data = readBackup(wb);
@@ -93,7 +102,7 @@ export function SettingsView({ journal, store, sync }) {
       <div class="row wrap">
         <button class="btn primary" onClick={backup} disabled={!!busy}>Back up everything to Excel</button>
         <button class="btn" onClick={() => fileRef.current.click()} disabled={!!busy}>Restore from Excel backup</button>
-        <button class="btn" onClick={() => importRef.current.click()} disabled={!!busy}>Import tasks from a spreadsheet</button>
+        <button class="btn" onClick={() => importRef.current.click()} disabled={!!busy}>Import a spreadsheet (Alchemy planner or task list)</button>
         {busy && <span class="muted small">{busy}</span>}
       </div>
       <input ref={fileRef} type="file" accept=".xlsx,.xls,.xlsm,.ods" hidden onChange={(e) => restore(e.currentTarget.files[0])} />
