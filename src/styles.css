@@ -774,3 +774,8 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; user-select:
 .mboard .ds-add { opacity: 0; }
 .mboard .dsec:hover .ds-add, .mboard .ds-add:focus { opacity: 1; }
 @media (hover: none) { .mboard .ds-add { opacity: 1; } }
+/* drag handle for fingers; with a mouse the whole task drags */
+.it-grip { display: none; touch-action: none; color: var(--faint, var(--muted)); padding: 2px 2px 2px 6px; font-size: 14px; line-height: 1; cursor: grab; align-self: center; }
+@media (hover: none), (pointer: coarse) { .it-grip { display: inline-block; } }
+.item { cursor: grab; }
+.move-quick { margin-bottom: 6px; }

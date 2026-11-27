@@ -84,8 +84,10 @@ export function CalendarBoard({ journal, view: v0, date, onOpen }) {
       </div>
       {clip && (
         <div class="clipbar">
-          <span>📋 Copied <b>{clip.text}</b> · press <b>Paste</b> on any day{view === 'year' ? ' (open a month or week)' : ''}</span>
-          <button class="link" onClick={() => setClip(null)}>Clear</button>
+          {clip.mode === 'move'
+            ? <span>↪ Moving <b>{clip.text}</b> · press <b>Move here</b> on the day you want{view === 'year' ? ' (open a month or week)' : ''}</span>
+            : <span>📋 Copied <b>{clip.text}</b> · press <b>Paste</b> on any day{view === 'year' ? ' (open a month or week)' : ''}</span>}
+          <button class="link" onClick={() => setClip(null)}>{clip.mode === 'move' ? 'Cancel' : 'Clear'}</button>
         </div>
       )}
       <div class="cal-main">
@@ -111,6 +113,7 @@ function ItemRow({ journal, e, onItem, showTime = true }) {
       </button>
       {showTime && e.time && <span class="it-time">{e.time}</span>}
       {e.est > 0 && <span class="it-est">{fmtMins(e.est)}</span>}
+      <span class="it-grip" aria-hidden="true" onPointerDown={(ev) => { ev.stopPropagation(); ev.preventDefault(); startDrag(ev, { label: e.text, onDrop: dropOnDay(journal, e), threshold: 2 }); }}>⠿</span>
     </div>
   );
 }
@@ -129,7 +132,9 @@ function DayCell({ journal, date, onItem, onDay, clip, all = false, big = false 
       <div class="dc-head">
         <button class="dc-n" onClick={() => onDay(date)} title="Open this day">{big ? <><b>{WD[dow(date)].slice(0, 3)}</b> {+date.slice(8)}</> : +date.slice(8)}</button>
         {sc.total > 0 && <span class="dc-score">{sc.done}/{sc.total}</span>}
-        {clip && <button class="paste" onClick={() => { journal.copyToDay(clip.id, date); toast(`Pasted onto ${shortDay(date)}`); }} title={`Paste “${clip.text}”`}>Paste</button>}
+        {clip && (clip.mode === 'move'
+          ? (journal.s.get('entries', clip.id)?.page !== `day:${date}` && <button class="paste" onClick={() => { journal.moveToDay(clip.id, date); setClip(null); toast(`Moved to ${shortDay(date)}`); }} title={`Move “${clip.text}” here`}>Move here</button>)
+          : <button class="paste" onClick={() => { journal.copyToDay(clip.id, date); toast(`Pasted onto ${shortDay(date)}`); }} title={`Paste “${clip.text}”`}>Paste</button>)}
       </div>
       {DAY_ORDER.map((pid) => {
         const items = lanes[pid];
@@ -336,6 +341,9 @@ function ItemSheet({ journal, e: e0, onClose, onOpen }) {
   const [end, setEnd] = useState(e.endTime || '');
   const [moveTo, setMoveTo] = useState(addDays(e.page.slice(4), 1));
   const date = e.page.slice(4);
+  const today = todayStr();
+  const nextMon = addDays(date, ((8 - ((new Date(date + 'T12:00:00Z').getUTCDay() + 6) % 7 + 1)) % 7) || 7);
+  const quick = [['Yesterday', addDays(date, -1)], ['Tomorrow', addDays(date, 1)], ['+2 days', addDays(date, 2)], ['Next Monday', nextMon], ...(date !== today ? [['Today', today]] : [])];
   const save = () => {
     const f = {};
     if (text.trim() && text.trim() !== e.text) f.text = text.trim();
@@ -363,10 +371,14 @@ function ItemSheet({ journal, e: e0, onClose, onOpen }) {
       <div class="pill-filter">
         {DAY_ORDER.map((p) => <button class={`pf ${e.pillar === p ? 'on' : ''}`} onClick={() => journal.update(e.id, { pillar: p })}>{pillarOf(p).label}</button>)}
       </div>
-      <div class="field-l">Move</div>
+      <div class="field-l">Move to another day</div>
+      <div class="row wrap move-quick">
+        {quick.map(([label, d]) => <button class="btn small" onClick={() => done(() => journal.moveToDay(e.id, d), `Moved to ${shortDay(d)}`)}>{label}</button>)}
+        <button class="btn small primary" onClick={() => { save(); setClip(e, 'move'); toast('Now press Move here on the day you want'); onClose(); }}>Pick on calendar…</button>
+      </div>
       <div class="row wrap">
         <input type="date" value={moveTo} onInput={(x) => x.currentTarget.value && setMoveTo(x.currentTarget.value)} />
-        <button class="btn" onClick={() => done(() => journal.moveToDay(e.id, moveTo), `Moved to ${shortDay(moveTo)}`)}>Move to this day</button>
+        <button class="btn" onClick={() => done(() => journal.moveToDay(e.id, moveTo), `Moved to ${shortDay(moveTo)}`)}>Move to this date</button>
         <button class="btn" onClick={() => { setClip(e); toast('Copied. Press Paste on another day.'); onClose(); }}>Copy</button>
         <button class="btn" onClick={() => done(() => journal.backToMatrix(e.id), 'Back in the matrix')}>Back to matrix</button>
       </div>
