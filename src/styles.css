@@ -768,3 +768,9 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; user-select:
 .dayboard .tg-allday { display: none; }
 .yb-d { aspect-ratio: auto; height: 26px; }
 .tc-btns { flex-wrap: wrap; }
+.dsec.empty { padding-top: 0; padding-bottom: 0; }
+.dsec.empty .ds-h { opacity: .55; margin-bottom: 0; }
+.mboard .dsec + .dsec { margin-top: 2px; }
+.mboard .ds-add { opacity: 0; }
+.mboard .dsec:hover .ds-add, .mboard .ds-add:focus { opacity: 1; }
+@media (hover: none) { .mboard .ds-add { opacity: 1; } }

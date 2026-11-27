@@ -115,7 +115,7 @@ function ItemRow({ journal, e, onItem, showTime = true }) {
   );
 }
 
-/** One day's pillar sections. In month view only the pillars that have something; in week/day all of them. */
+/** One day's pillar sections — every pillar, every day, like the month sheets. */
 function DayCell({ journal, date, onItem, onDay, clip, all = false, big = false }) {
   const today = todayStr();
   const lanes = journal.dayPillars(date);
@@ -133,12 +133,11 @@ function DayCell({ journal, date, onItem, onDay, clip, all = false, big = false 
       </div>
       {DAY_ORDER.map((pid) => {
         const items = lanes[pid];
-        if (!all && !items.length) return null;
         return (
-          <div class="dsec" style={`--pc:${pillarColor(pid)}`} data-drop="day" data-date={date} data-pillar={pid}>
+          <div class={`dsec ${items.length ? "" : "empty"}`} style={`--pc:${pillarColor(pid)}`} data-drop="day" data-date={date} data-pillar={pid}>
             <div class="ds-h">
               <span>{pillarOf(pid).label}</span>
-              {all && <button class="ds-add" onClick={() => { setAdding(adding === pid ? null : pid); setText(''); }} aria-label={`Add to ${pillarOf(pid).label}`}>＋</button>}
+              <button class="ds-add" onClick={() => { setAdding(adding === pid ? null : pid); setText(''); }} aria-label={`Add to ${pillarOf(pid).label}`}>＋</button>
             </div>
             {items.map((e) => <ItemRow journal={journal} e={e} onItem={onItem} />)}
             {adding === pid && (
@@ -148,7 +147,6 @@ function DayCell({ journal, date, onItem, onDay, clip, all = false, big = false 
           </div>
         );
       })}
-      {!all && list.length === 0 && <button class="dc-empty" onClick={() => onDay(date)}>+</button>}
     </div>
   );
 }
