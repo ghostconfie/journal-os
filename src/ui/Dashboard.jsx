@@ -58,7 +58,7 @@ export function Dashboard({ journal, onOpen }) {
         </div>
         <div class="dash-actions">
           <a class="btn" href={`#/journal/${today}`}>✎ Journal</a>
-          <a class="btn primary" href="#/plan">Plan the day</a>
+          <a class="btn primary" href={`#/plan/day/${today}`}>Plan today</a>
         </div>
       </header>
 

@@ -465,8 +465,9 @@ export class Journal {
   unscheduled({ pillar = null } = {}) {
     const out = [];
     for (const e of this.s.raw('entries')) {
-      if (e.kind !== 'task' || e.status !== 'open' || e.time) continue;
+      if (e.kind !== 'task' || e.status !== 'open') continue;
       const pt = pageInfo(e.page).type;
+      if (e.time && pt === 'day') continue; // already on the clock (a time on an undated task doesn't count)
       if (pt !== 'pillar' && pt !== 'day' && pt !== 'col') continue;
       if (pillar && (e.pillar || pillarOfPage(e.page)) !== pillar) continue;
       out.push({ ...e });
@@ -519,6 +520,62 @@ export class Journal {
     }
     for (const list of out.values()) list.sort((a, b) => (a.time || '').localeCompare(b.time || '') || a.order - b.order);
     return out;
+  }
+
+  // ---- planning a day by pillar ----
+
+  /**
+   * A day's task manager: the day's tasks and events that don't have a time yet, sorted into the six pillars
+   * (anything without a pillar goes under "Tasks to do"), plus what's already timed.
+   */
+  dayBoard(date) {
+    const lanes = Object.fromEntries(PILLARS.map((p) => [p.id, []]));
+    const timed = [];
+    for (const e of this.entries(dayPage(date))) {
+      if (e.kind !== 'task' && e.kind !== 'event') continue;
+      if (e.status === 'migrated' || e.status === 'scheduled' || e.status === 'cancelled') continue;
+      if (e.time) { timed.push(e); continue; }
+      lanes[pillarOf(e.pillar) ? e.pillar : 'todo'].push(e);
+    }
+    return { lanes, timed: timed.sort((a, b) => a.time.localeCompare(b.time)) };
+  }
+
+  /** Put a task on a day under a pillar, without a time (takes it off the clock if it had one). */
+  toPillarOnDay(id, date, pillar) {
+    const e = this.s.get('entries', id);
+    if (!e) return null;
+    this.s.update('entries', id, { page: dayPage(date), pillar: pillar || e.pillar || 'todo', time: null, endTime: null, block: null, order: Date.now() });
+    this.s.commit();
+    return this.s.get('entries', id);
+  }
+
+  /**
+   * Give every untimed open item on the day a time, pillar by pillar (in the pillars' order, then the order they
+   * were added), in the free gaps between `from` and `to`. Each takes its own estimate, else `dur` minutes.
+   * Returns how many were placed; anything that doesn't fit stays untimed.
+   */
+  autoSchedule(date, { from = '09:00', to = '22:00', dur = 60, gap = 0 } = {}) {
+    const { lanes, timed } = this.dayBoard(date);
+    const busy = timed.map((e) => { const s = toMin(e.time); return [s, e.endTime ? Math.max(s + 15, toMin(e.endTime)) : s + 30]; });
+    const queue = PILLARS.flatMap((p) => lanes[p.id]).filter((e) => e.status === 'open');
+    const end = toMin(to);
+    let t = toMin(from), placed = 0;
+    for (const e of queue) {
+      const d = e.est > 0 ? e.est : dur;
+      let s = t, guard = 0;
+      while (guard++ < 200) {
+        const clash = busy.find(([a, b]) => s < b && s + d > a);
+        if (!clash) break;
+        s = clash[1];
+      }
+      if (s + d > end) continue;
+      this.s.update('entries', e.id, { time: fromMin(s), endTime: fromMin(Math.min(s + d, 23 * 60 + 59)), block: null });
+      busy.push([s, s + d]);
+      t = s + d + gap;
+      placed++;
+    }
+    this.s.commit();
+    return placed;
   }
 
   // ---- journal (interstitial diary) ----

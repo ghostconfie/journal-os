@@ -7,6 +7,7 @@ import { CalendarView } from './Calendar.jsx';
 import { MatrixView } from './Matrix.jsx';
 import { JournalHome, JournalDay } from './Journal.jsx';
 import { Dashboard } from './Dashboard.jsx';
+import { DayPlanner } from './DayPlanner.jsx';
 import { FocusBar, SwitchSheet, StartSheet } from './Focus.jsx';
 import { Toasts, useVersion, useTick, toast } from './common.jsx';
 import { onPrefs } from './prefs.js';
@@ -104,7 +105,9 @@ export function App({ journal, store, sync: initialSync, onStatus }) {
   let view;
   switch (route.name) {
     case 'cal': view = <CalendarView journal={journal} view={route.view} date={route.date} onOpen={setOpen} />; break;
-    case 'plan': view = <CalendarView journal={journal} view={route.view} date={route.date} tray onOpen={setOpen} />; break;
+    case 'plan': view = route.view === 'day'
+      ? <DayPlanner key={route.date} journal={journal} date={route.date} onOpen={setOpen} />
+      : <CalendarView journal={journal} view={route.view || (window.innerWidth < 760 ? 'month' : 'week')} date={route.date} tray onOpen={setOpen} />; break;
     case 'matrix': view = <MatrixView journal={journal} onOpen={setOpen} onPlan={onPlan} />; break;
     case 'journal': view = <JournalHome journal={journal} />; break;
     case 'jday': view = <JournalDay key={route.date} journal={journal} date={route.date} />; break;

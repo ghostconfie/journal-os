@@ -5,6 +5,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
 import { Sheet, toast, useTick, shortDay } from './common.jsx';
 import { startDrag } from './drag.js';
 import { ColorDots } from './Color.jsx';
+import { Steps } from './Steps.jsx';
 import { getPrefs } from './prefs.js';
 import { PENCILS, PILLARS, QUADS, KINDS, layoutDay, pencilOf, quadOf, pillarOf, toMin, fromMin } from '../lib/journal.js';
 import { addDays, daysInMonth, monthKey, nowLondon, shiftMonth, todayStr } from '../lib/util.js';
@@ -17,6 +18,24 @@ export const weekStartOf = (iso) => addDays(iso, -((dow(iso) - (getPrefs().weekS
 const hexOf = (e) => PENCILS[pencilOf(e)]?.hex || '#10b981';
 const isPhone = () => typeof window !== 'undefined' && window.innerWidth < 760;
 const clampEnd = (m) => fromMin(Math.min(m, 23 * 60 + 59));
+
+/**
+ * What happens when a task is dropped somewhere: on a time in the calendar (gets that time, an hour long or its
+ * estimate), on a day or the all-day row (that day, no time), or on a pillar lane in the day planner.
+ */
+export function dropTask(journal, e) {
+  return (target, u) => {
+    const d = target.dataset.date;
+    const kind = target.dataset.drop;
+    if (kind === 'pillar') { journal.toPillarOnDay(e.id, d, target.dataset.pillar); toast(`“${e.text}” → ${pillarOf(target.dataset.pillar)?.label}`); return; }
+    if (kind === 'allday') { journal.schedule(e.id, { date: d }); toast(`“${e.text}” on ${shortDay(d)}`); return; }
+    if (kind !== 'cal') return;
+    const r = target.getBoundingClientRect(), H = +target.dataset.hour || 52;
+    const s = Math.max(0, Math.min(23 * 60, Math.round(((u.clientY - r.top) / H) * 60 / 15) * 15));
+    journal.schedule(e.id, { date: d, time: fromMin(s), endTime: clampEnd(s + (e.est > 0 ? e.est : 60)) });
+    toast(`“${e.text}” → ${shortDay(d)} ${fromMin(s)}`);
+  };
+}
 
 export function calHref(view, date) { return `#/cal/${view}/${view === 'month' ? date.slice(0, 7) : view === 'year' ? date.slice(0, 4) : date}`; }
 
@@ -45,7 +64,9 @@ export function CalendarView({ journal, view: v0, date, tray = false, onOpen }) 
   const [showTray, setShowTray] = useState(tray && !isPhone());
   useEffect(() => setShowTray(tray && !isPhone()), [tray]);
   const go = (d, vw = view) => { location.hash = tray ? `#/plan/${vw}/${d}` : calHref(vw, d); };
-  const views = [['day', 'Day'], ['3day', '3 days'], ['week', 'Week'], ['month', 'Month'], ['year', 'Year']];
+  // in the planner, opening a day goes to that day's task manager (step 3)
+  const openDay = (d) => { location.hash = tray ? `#/plan/day/${d}` : calHref('day', d); };
+  const views = tray ? [['week', 'Week'], ['month', 'Month']] : [['day', 'Day'], ['3day', '3 days'], ['week', 'Week'], ['month', 'Month'], ['year', 'Year']];
   const place = ({ date: d, time, endTime }) => {
     if (!placing) return false;
     journal.schedule(placing.id, { date: d, time, endTime });
@@ -55,15 +76,17 @@ export function CalendarView({ journal, view: v0, date, tray = false, onOpen }) 
   };
   const onSlot = (slot) => { if (!place(slot)) setCreate(slot); };
   let body;
-  if (view === 'month') body = <MonthGrid journal={journal} month={date.slice(0, 7)} onOpen={onOpen} onSlot={onSlot} onDay={(d) => go(d, 'day')} />;
+  if (view === 'month') body = <MonthGrid journal={journal} month={date.slice(0, 7)} onOpen={onOpen} onSlot={onSlot} onDay={openDay} />;
   else if (view === 'year') body = <YearGrid journal={journal} year={date.slice(0, 4)} onMonth={(m) => go(`${m}-01`, 'month')} />;
   else {
     const n = view === 'week' ? 7 : view === '3day' ? 3 : 1;
     const start = view === 'week' ? weekStartOf(date) : date;
-    body = <TimeGrid journal={journal} days={Array.from({ length: n }, (_, i) => addDays(start, i))} onOpen={onOpen} onSlot={onSlot} onDay={(d) => go(d, 'day')} />;
+    body = <TimeGrid journal={journal} days={Array.from({ length: n }, (_, i) => addDays(start, i))} onOpen={onOpen} onSlot={onSlot} onDay={openDay} />;
   }
   return (
     <div class={`cal-screen ${showTray ? 'with-tray' : ''}`}>
+      {tray && <Steps at={2} date={date} />}
+      {tray && <p class="muted small step-hint">Drag tasks from the matrix onto a day (or tap one, then tap a day). Then open a day, by tapping its date, to sort it by pillar and give tasks a time.</p>}
       <div class="cal-bar">
         <div class="cal-bar-l">
           <button class="btn" onClick={() => go(today)}>Today</button>
@@ -92,7 +115,7 @@ export function CalendarView({ journal, view: v0, date, tray = false, onOpen }) 
 }
 
 // ---------------- time grid (day / 3-day / week) ----------------
-function TimeGrid({ journal, days, onOpen, onSlot, onDay }) {
+export function TimeGrid({ journal, days, onOpen, onSlot, onDay, height }) {
   useTick(60000);
   const today = todayStr();
   const HOUR = isPhone() ? 44 : 52;
@@ -209,7 +232,7 @@ function TimeGrid({ journal, days, onOpen, onSlot, onDay }) {
           );
         })}
       </div>
-      <div class="tg-scroll" ref={scroller}>
+      <div class="tg-scroll" ref={scroller} style={height ? `height:${height}` : ''}>
         <div class="tg-grid" style={`height:${HOUR * 24}px`}>
           <div class="tg-hours">{hours.map((h) => <div class="tg-h" style={`top:${px(h * 60)}px`}>{h ? `${pad(h)}:00` : ''}</div>)}</div>
           <div class="tg-cols" ref={cols}>
@@ -350,18 +373,11 @@ function Tray({ journal, onOpen, placing, setPlacing, onClose }) {
   const list = journal.unscheduled({ pillar: pillar || null });
   const groups = [...QUADS].reverse().map((q) => ({ q, items: list.filter((e) => quadOf(e) === q.id) })).filter((g) => g.items.length);
   const add = () => { if (!text.trim()) return; journal.addTask(text, { quad: 'schedule', pillar: pillar || null }); setText(''); };
-  const drop = (e) => (target, u) => {
-    const d = target.dataset.date;
-    if (target.dataset.drop === 'allday') { journal.schedule(e.id, { date: d }); toast(`“${e.text}” on ${shortDay(d)}`); return; }
-    const r = target.getBoundingClientRect(), H = +target.dataset.hour || 52;
-    const s = Math.max(0, Math.min(23 * 60, Math.round(((u.clientY - r.top) / H) * 60 / 15) * 15));
-    journal.schedule(e.id, { date: d, time: fromMin(s), endTime: clampEnd(s + 60) });
-    toast(`“${e.text}” → ${shortDay(d)} ${fromMin(s)}`);
-  };
+  const drop = (e) => dropTask(journal, e);
   return (
     <aside class="tray card">
       <div class="tray-head">
-        <div><h2>To schedule</h2><p class="muted small">From your matrix. Drag onto the calendar, or tap then tap a time.</p></div>
+        <div><h2>From the matrix</h2><p class="muted small">Drag a task onto a day, or tap it then tap a day. Open a day to sort it by pillar and give tasks a time.</p></div>
         <button class="icon-btn" onClick={onClose} aria-label="Hide tasks">✕</button>
       </div>
       <div class="pill-filter">

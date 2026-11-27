@@ -62,3 +62,30 @@ describe('Eisenhower matrix, planner and calendar', () => {
     expect(days.map((d) => [d.date, d.entries.length, d.cards, d.photos.length])).toEqual([['2026-11-26', 2, 1, 1], ['2026-11-25', 0, 1, 0]]);
   });
 });
+
+describe('planning a day by pillar', () => {
+  let s, j;
+  beforeEach(() => { setNow('2026-11-27T08:00:00Z'); s = new Store(); j = new Journal(s); });
+  it('sorts the day into pillars, then auto-schedules around fixed events in pillar order', () => {
+    const a = j.addTask('invoices +fin', { quad: 'do' });
+    const b = j.addTask('gym +physical', {});
+    const c = j.addTask('pray +spiritual', {});
+    const d = j.addTask('misc errand', {});
+    for (const x of [a, b, c, d]) j.schedule(x.id, { date: '2026-11-28' });
+    j.addToCalendar({ date: '2026-11-28', time: '10:00', endTime: '11:00', text: 'meeting' });
+    j.update(c.id, { est: 30 });
+    let board = j.dayBoard('2026-11-28');
+    expect(board.lanes.physical.map((e) => e.text)).toEqual(['gym']);
+    expect(board.lanes.todo.map((e) => e.text)).toEqual(['misc errand']);
+    expect(board.timed.map((e) => e.text)).toEqual(['meeting']);
+    j.toPillarOnDay(d.id, '2026-11-28', 'relational');
+    expect(j.dayBoard('2026-11-28').lanes.relational.map((e) => e.text)).toEqual(['misc errand']);
+    const n = j.autoSchedule('2026-11-28', { from: '09:00', to: '22:00', dur: 60 });
+    expect(n).toBe(4);
+    const t = (x) => { const e = s.get('entries', x.id); return `${e.time}-${e.endTime}`; };
+    // physical 09-10, meeting 10-11, spiritual (30m) 11-11:30, financial 11:30-12:30, relational 12:30-13:30
+    expect([t(b), t(c), t(a), t(d)]).toEqual(['09:00-10:00', '11:00-11:30', '11:30-12:30', '12:30-13:30']);
+    j.toPillarOnDay(a.id, '2026-11-28', 'financial');
+    expect(s.get('entries', a.id).time).toBe(null);
+  });
+});

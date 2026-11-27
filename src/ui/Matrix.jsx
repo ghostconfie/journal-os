@@ -2,6 +2,7 @@
 // Drag a task between columns (or use its arrows) as its importance and urgency change, then schedule it.
 import { useState } from 'preact/hooks';
 import { startDrag } from './drag.js';
+import { Steps } from './Steps.jsx';
 import { shortDay, toast, dueLabel } from './common.jsx';
 import { PENCILS, PILLARS, QUADS, pencilOf, pillarOf, pageInfo } from '../lib/journal.js';
 
@@ -15,6 +16,7 @@ export function MatrixView({ journal, onOpen, onPlan }) {
   const order = view === 'grid' ? ['do', 'schedule', 'delegate', 'later'] : QUADS.map((q) => q.id);
   return (
     <section class="page wide matrix-page">
+      <Steps at={1} />
       <header class="page-head">
         <div class="ph-text">
           <h1 class="page-title">Eisenhower matrix</h1>
@@ -26,7 +28,7 @@ export function MatrixView({ journal, onOpen, onPlan }) {
             <button class={view === 'grid' ? 'on' : ''} onClick={() => setView('grid')}>2 × 2</button>
           </div>
           <button class={`btn ${showDone ? 'on' : ''}`} onClick={() => setShowDone(!showDone)}>Done ({m.done.length})</button>
-          <a class="btn primary" href="#/plan">Plan into calendar →</a>
+          <a class="btn primary" href="#/plan">Next: pick days →</a>
         </div>
       </header>
       <div class="pill-filter">

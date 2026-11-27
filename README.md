@@ -8,8 +8,13 @@ devices through Firebase, and publishes itself to GitHub Pages on every push to 
    Later (not urgent, not important) → Delegate (urgent, not important) → Schedule (important, not urgent) →
    Do now (urgent and important). Drag a task between columns (or use its ‹ › arrows) as things change.
    Filter by pillar. ◷ schedules a task.
-2. **Planner**: the calendar with a tray of every task that has no time yet, most pressing first. Drag a task onto a
-   time (or tap it, then tap a time) to schedule it.
+2. **Pick days** (Planner): a week or month with the matrix tray beside it. Drag tasks onto days (or tap a task,
+   then tap a day). Tap a day's date to open it.
+3. **Sort by pillar** (the day's task manager): the day's tasks in six pillar lanes. Add more from the matrix with
+   ＋, drag tasks between pillars, and tap a task's duration (15m–2h) to set how long it takes.
+4. **Give it a time**: drag tasks from the lanes onto the day's timeline, or press **Fill the day by pillar** to
+   place them in pillar order (Physical → Spiritual → Mental → Financial → Relational → Tasks to do) in the free
+   time between two times you choose, around anything already booked. **Clear task times** puts them back.
 3. **Calendar**: day, 3-day, week, month and year views, like Google Calendar. Click or drag on empty time to add
    an event or task, drag a block to move it (across days too), drag its bottom edge to change when it ends.
    Untimed items and deadlines sit in the all-day row.
